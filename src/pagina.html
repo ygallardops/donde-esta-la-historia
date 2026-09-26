@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es-PE">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  body { font: 16px system-ui, sans-serif; margin: 16px; max-width: 720px; }
+  [role=tab] { font-size: 16px; padding: 8px 16px; }
+  [role=tab][aria-selected=true] { font-weight: bold; border-bottom: 3px solid; }
+  label { display: block; margin: 8px 0; }
+  input, select { font-size: 16px; padding: 6px; width: 100%; box-sizing: border-box; }
+  #mensaje { padding: 8px; min-height: 1.5em; }
+  .ok { background: #e6f4ea; }
+  .error { background: #fce8e6; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #666; padding: 4px; text-align: left; }
+  #impresion { display: none; }
+  @media print {
+    body > *:not(#impresion) { display: none; }
+    #impresion { display: block; }
+  }
+</style>
+</head>
+<body>
+<h1>¿Dónde está la historia?</h1>
+<div role="tablist">
+  <button role="tab" id="tab-salida" aria-selected="true" onclick="mostrar('salida')">Salida</button>
+  <button role="tab" id="tab-devolucion" aria-selected="false" onclick="mostrar('devolucion')">Devolución</button>
+</div>
+<p id="mensaje" role="status" aria-live="polite"></p>
+
+<form id="salida" onsubmit="registrarSalida(event)">
+  <label>Servicio <select name="servicio" required></select></label>
+  <label>Persona autorizada que recibe (nombre y apellido completos)
+    <input name="persona" required autocomplete="off"></label>
+  <label>Tipo de préstamo <select name="tipo" required onchange="tipoCambiado()"></select></label>
+  <label id="campo-fecha" hidden>Fecha de devolución <input name="fechaManual" type="date"></label>
+  <label>Número de historia <input name="numero" required autocomplete="off"></label>
+  <button>Registrar salida</button>
+  <h2>Cargo</h2>
+  <p id="cargo-resumen">Sin historias.</p>
+  <button type="button" onclick="imprimirCargo()">Imprimir cargo</button>
+  <button type="button" onclick="nuevoCargo()">Nuevo cargo</button>
+</form>
+
+<form id="devolucion" hidden onsubmit="registrarDevolucion(event)">
+  <label>Integridad
+    <select name="integridad"><option>conforme</option><option>con observaciones</option></select></label>
+  <label>Observación (sin datos del paciente) <input name="observacion" autocomplete="off"></label>
+  <label>Número de historia <input name="numero" required autocomplete="off"></label>
+  <button>Registrar devolución</button>
+</form>
+
+<div id="impresion"></div>
+
+<script>
+  var formas = {};
+  var cargo = [];
+
+  google.script.run.withSuccessHandler(iniciar).withFailureHandler(error).configuracion();
+
+  function iniciar(conf) {
+    var f = document.getElementById('salida');
+    conf.servicios.forEach(function (s) { f.servicio.add(new Option(s)); });
+    conf.tipos.forEach(function (t) { formas[t.nombre] = t.forma; f.tipo.add(new Option(t.nombre)); });
+    tipoCambiado();
+    f.numero.focus();
+  }
+
+  function mostrar(cual) {
+    ['salida', 'devolucion'].forEach(function (id) {
+      document.getElementById(id).hidden = id !== cual;
+      document.getElementById('tab-' + id).setAttribute('aria-selected', id === cual);
+    });
+    document.getElementById(cual).numero.focus();
+  }
+
+  function tipoCambiado() {
+    var f = document.getElementById('salida');
+    var manual = formas[f.tipo.value] === 'manual';
+    document.getElementById('campo-fecha').hidden = !manual;
+    f.fechaManual.required = manual;
+  }
+
+  function registrarSalida(evento) {
+    evento.preventDefault();
+    var f = evento.target;
+    var datos = { numero: f.numero.value, servicio: f.servicio.value, persona: f.persona.value.trim(),
+      tipo: f.tipo.value, fechaManual: f.fechaManual.value };
+    if (cargo.length && (cargo[0].servicio !== datos.servicio || cargo[0].persona !== datos.persona)) {
+      return avisar('El cargo es de ' + cargo[0].servicio + ' y ' + cargo[0].persona +
+        '. Imprímalo o inicie un nuevo cargo antes de cambiar de servicio o de persona.', false);
+    }
+    google.script.run.withFailureHandler(error).withSuccessHandler(function (r) {
+      cargo.push(r);
+      resumirCargo();
+      avisar('Salida registrada: ' + r.numero + '. Fecha límite: ' + r.limite + '.', true);
+      f.numero.value = '';
+      f.numero.focus();
+    }).registrarSalida(datos);
+  }
+
+  function registrarDevolucion(evento) {
+    evento.preventDefault();
+    var f = evento.target;
+    var datos = { numero: f.numero.value, integridad: f.integridad.value, observacion: f.observacion.value };
+    google.script.run.withFailureHandler(error).withSuccessHandler(function (r) {
+      avisar('Devolución registrada: ' + r.numero + ' (' + r.servicio + ')' +
+        (r.vencida ? '. Se devolvió después de la fecha límite.' : '.'), true);
+      f.numero.value = '';
+      f.integridad.value = 'conforme';
+      f.observacion.value = '';
+      f.numero.focus();
+    }).registrarDevolucion(datos);
+  }
+
+  function resumirCargo() {
+    document.getElementById('cargo-resumen').textContent = cargo.length
+      ? cargo.length + ' historias para ' + cargo[0].servicio + ', recibe ' + cargo[0].persona + '.'
+      : 'Sin historias.';
+  }
+
+  function nuevoCargo() {
+    cargo = [];
+    resumirCargo();
+  }
+
+  // Arma el cargo con nodos de texto, sin HTML, porque incluye el nombre escrito por el usuario.
+  function imprimirCargo() {
+    if (!cargo.length) return avisar('El cargo no tiene historias.', false);
+    var zona = document.getElementById('impresion');
+    zona.replaceChildren();
+    function agregar(padre, etiqueta, contenido) {
+      var nodo = document.createElement(etiqueta);
+      if (contenido !== undefined) nodo.textContent = contenido;
+      padre.appendChild(nodo);
+      return nodo;
+    }
+    agregar(zona, 'h1', 'Cargo de salida de historias clínicas');
+    agregar(zona, 'p', 'Servicio: ' + cargo[0].servicio);
+    agregar(zona, 'p', 'Entrega: ' + cargo[0].entrega);
+    agregar(zona, 'p', 'Recibe: ' + cargo[0].persona);
+    var tabla = agregar(zona, 'table');
+    var cabecera = agregar(tabla, 'tr');
+    ['N.°', 'Número de historia', 'Salida', 'Fecha límite'].forEach(function (t) { agregar(cabecera, 'th', t); });
+    cargo.forEach(function (r, i) {
+      var fila = agregar(tabla, 'tr');
+      [String(i + 1), r.numero, r.salida, r.limite].forEach(function (t) { agregar(fila, 'td', t); });
+    });
+    agregar(zona, 'p', 'Firma de quien recibe: ______________________________');
+    window.print();
+  }
+
+  function avisar(texto, ok) {
+    var m = document.getElementById('mensaje');
+    m.textContent = texto;
+    m.className = ok ? 'ok' : 'error';
+  }
+
+  function error(e) {
+    avisar(e.message || String(e), false);
+  }
+</script>
+</body>
+</html>
