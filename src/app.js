@@ -133,8 +133,13 @@ function filas(nombre) {
     .filter(function (f) { return f[0] !== ''; });
 }
 
+// El libro se abre una sola vez por ejecución: abrirlo cuesta más que leerlo.
+var libroAbierto = null;
 function libro() {
-  return SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('ID_HOJA'));
+  if (!libroAbierto) {
+    libroAbierto = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('ID_HOJA'));
+  }
+  return libroAbierto;
 }
 
 function conBloqueo(fn) {
