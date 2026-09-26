@@ -29,7 +29,7 @@ Registrar cada salida y cada devolución en segundos, saber en todo momento qué
 
 1. **Mínimos datos.** Del paciente, solo el número de historia: ni nombre ni diagnóstico. La información de salud es un dato sensible según la Ley N.° 29733, Ley de Protección de Datos Personales.
 2. **Solo cuentas institucionales.** En una IPRESS, la herramienta se instala en una cuenta institucional y la página solo admite cuentas de su dominio.
-3. **El historial no se edita a mano.** La hoja está protegida y solo se escribe a través de la página.
+3. **El historial no se edita a mano.** La hoja no se comparte con quienes registran y solo se escribe a través de la página; sus pestañas tienen protección de advertencia para la cuenta propietaria.
 4. **Los plazos son configuración, no código.** Se editan en la hoja. Cada IPRESS debe comprobarlos contra la NTS y sus propias disposiciones.
 
 ## Funcionamiento
@@ -44,6 +44,7 @@ Campos: número de historia, servicio (lista), nombre y apellido completos de la
 
 - La fecha y hora de salida y la cuenta que registra se toman automáticamente.
 - La fecha límite se calcula según la tabla de plazos y el horario del archivo.
+- **Formato del número:** cada IPRESS configura en la hoja el patrón que debe cumplir el número de historia y si se quitan los ceros a la izquierda, para que `000123` y `123` se reconozcan como la misma historia.
 - **Bloqueo de duplicados:** si la historia ya figura como prestada, no se registra y se muestra dónde está. Esto detecta números mal digitados y préstamos dobles.
 
 ### Cargo
@@ -131,12 +132,13 @@ Un archivo de Google Sheets por año, con estas pestañas:
 | `servicios` | Lista de servicios y consultorios |
 | `horario` | Horario de apertura por día de la semana y feriados |
 | `usuarios` | Cuentas autorizadas para registrar |
+| `configuracion` | Formato del número de historia y si se quitan los ceros a la izquierda |
 
 Google Sheets admite hasta 10 millones de celdas por archivo. Con 16 columnas en `movimientos`, un archivo anual admite más de 600 000 préstamos.
 
 ## Arquitectura
 
-- **Página web de Apps Script** con dos pestañas, Salida y Devolución, pensada para el teclado: escribir el número y presionar Enter. Acceso restringido a cuentas del dominio y ejecución como el usuario que la abre.
+- **Página web de Apps Script** con dos pestañas, Salida y Devolución, pensada para el teclado: escribir el número y presionar Enter. Se ejecuta como la cuenta propietaria del archivo, con acceso restringido al dominio. La hoja no se comparte con quienes registran: solo escriben a través de la página. La cuenta de quien registra se obtiene con `Session.getActiveUser()`, que la devuelve cuando pertenece al mismo dominio de Google Workspace.
 - **Escrituras de una en una** con `LockService`, para que dos personas que registran al mismo tiempo no se pisen.
 - **Reglas en JavaScript puro** (`src/reglas.js`): cálculo de la fecha límite, ajuste al horario, cambio de tipo, estado de una historia y validaciones. No dependen de Google.
 - **Capa delgada de Apps Script** (`src/app.js`): lee y escribe en la hoja, sirve la página y envía el aviso a Chat.
