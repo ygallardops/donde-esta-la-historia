@@ -16,3 +16,13 @@ test('docencia: fecha manual', () => assert.strictEqual(vence({ forma: 'manual' 
 test('forma desconocida', () => assert.throws(() => vence({ forma: 'semanas' }, '2026-09-28T10:00'), /desconocida/));
 test('horas no válidas', () => assert.throws(() => vence({ forma: 'horas', horas: 0 }, '2026-09-28T10:00'), /Horas/));
 test('inicio no válido', () => assert.throws(() => fechaLimite({ forma: 'horas', horas: 24 }, new Date('x'), HORARIO), /inicio/));
+
+// 2026-09-25 es viernes, 2026-09-26 sábado, 2026-12-24 jueves y 2026-12-25 feriado.
+test('noche: pasa a la apertura del día siguiente', () => igual(vence({ forma: 'horas', horas: 24 }, '2026-09-28T20:00'), '2026-09-30T07:00'));
+test('madrugada: pasa a la apertura del mismo día', () => igual(vence({ forma: 'horas', horas: 24 }, '2026-09-28T05:00'), '2026-09-29T07:00'));
+test('sábado por la tarde: pasa al lunes', () => igual(vence({ forma: 'horas', horas: 24 }, '2026-09-25T15:00'), '2026-09-28T07:00'));
+test('domingo: pasa al lunes', () => igual(vence({ forma: 'horas', horas: 24 }, '2026-09-26T12:00'), '2026-09-28T07:00'));
+test('feriado: pasa al día siguiente', () => igual(vence({ forma: 'horas', horas: 24 }, '2026-12-24T10:00'), '2026-12-26T07:00'));
+test('vence justo al cierre: no se corre', () => igual(vence({ forma: 'horas', horas: 9 }, '2026-09-28T10:00'), '2026-09-28T19:00'));
+test('horario sin días de atención', () => assert.throws(() => fechaLimite({ forma: 'horas', horas: 1 }, lima('2026-09-28T10:00'), { semana: [null, null, null, null, null, null, null], feriados: [] }), /días de atención/));
+test('hora mal escrita en el horario', () => assert.throws(() => fechaLimite({ forma: 'horas', horas: 1 }, lima('2026-09-28T10:00'), { semana: [null, ['7:00', '19:00'], LV, LV, LV, LV, null], feriados: [] }), /Hora no válida/));
