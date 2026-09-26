@@ -34,6 +34,10 @@ Registrar cada salida y cada devolución en segundos, saber en todo momento qué
 
 ## Funcionamiento
 
+### Cuentas autorizadas
+
+La IPRESS mantiene en la hoja la lista de cuentas autorizadas para registrar salidas y devoluciones, según sus designaciones formales. La NTS define como personal autorizado al personal responsable del archivo asignado formalmente y al personal de la salud que brinda la atención (numeral 4.1), y dispone que las historias se soliciten al personal autorizado del archivo según la organización institucional (numeral 5.3.2, inciso 3), subnumeral 3.3, literal a). La página rechaza las cuentas que no estén en la lista, aunque sean del dominio.
+
 ### Registrar una salida
 
 Campos: número de historia, servicio (lista), nombre y apellido completos de la persona autorizada que la solicita (texto, obligatorio) y tipo de préstamo (lista).
@@ -41,6 +45,10 @@ Campos: número de historia, servicio (lista), nombre y apellido completos de la
 - La fecha y hora de salida y la cuenta que registra se toman automáticamente.
 - La fecha límite se calcula según la tabla de plazos y el horario del archivo.
 - **Bloqueo de duplicados:** si la historia ya figura como prestada, no se registra y se muestra dónde está. Esto detecta números mal digitados y préstamos dobles.
+
+### Cargo
+
+Después de registrar las salidas de un servicio, la página genera un cargo imprimible con los números de historia, el servicio, la fecha y hora, la cuenta que entrega y el nombre de quien recibe, con espacio para su firma manuscrita (numeral 5.3.1, inciso 5), literal b).
 
 ### Registrar una devolución
 
@@ -98,6 +106,7 @@ Configuración de ejemplo del repositorio:
 
 **Decisiones de diseño que no provienen de la NTS:**
 
+- El horario del archivo solo se usa para calcular vencimientos: una salida puede registrarse a cualquier hora. Si ocurre con el archivo cerrado y su forma es `fin_del_dia`, vence en la siguiente apertura.
 - Las horas se cuentan corridas.
 - Si el vencimiento cae con el archivo cerrado (de noche, en un día no laborable o en un feriado), pasa a la siguiente apertura.
 - «El mismo día de la atención» se interpreta como la hora de cierre del archivo de ese día.
@@ -121,6 +130,7 @@ Un archivo de Google Sheets por año, con estas pestañas:
 | `plazos` | Tipo de préstamo, forma de vencimiento y horas |
 | `servicios` | Lista de servicios y consultorios |
 | `horario` | Horario de apertura por día de la semana y feriados |
+| `usuarios` | Cuentas autorizadas para registrar |
 
 Google Sheets admite hasta 10 millones de celdas por archivo. Con 16 columnas en `movimientos`, un archivo anual admite más de 600 000 préstamos.
 
@@ -152,7 +162,7 @@ Ninguna credencial institucional pasa por el repositorio.
 ## Plan de avance
 
 1. Reglas y pruebas del cálculo de la fecha límite.
-2. Hoja, página de Salida y Devolución (con integridad) y bloqueo de duplicados.
+2. Hoja, página de Salida y Devolución (con integridad), bloqueo de duplicados, cuentas autorizadas y cargo imprimible.
 3. Consultas (fuera ahora, vencidas, historial), retención, hospitalización, observación y cambio de tipo.
 4. Aviso diario, datos sintéticos, README y publicación del repositorio.
 
@@ -160,6 +170,7 @@ Ninguna credencial institucional pasa por el repositorio.
 
 | Riesgo | Mitigación |
 | --- | --- |
+| Cuenta o sesión compartida entre varias personas | Cada persona usa su propia cuenta; la trazabilidad depende de ello |
 | Uso desde una cuenta personal | La página solo admite cuentas del dominio institucional |
 | Número de historia mal digitado | Bloqueo de duplicados; se rechaza la devolución de una historia no prestada; QR en una versión futura |
 | Plazos distintos a los de la norma | Tabla configurable, con la fuente de cada plazo, verificada por cada IPRESS antes de usarla |
