@@ -26,3 +26,8 @@ test('feriado: pasa al día siguiente', () => igual(vence({ forma: 'horas', hora
 test('vence justo al cierre: no se corre', () => igual(vence({ forma: 'horas', horas: 9 }, '2026-09-28T10:00'), '2026-09-28T19:00'));
 test('horario sin días de atención', () => assert.throws(() => fechaLimite({ forma: 'horas', horas: 1 }, lima('2026-09-28T10:00'), { semana: [null, null, null, null, null, null, null], feriados: [] }), /días de atención/));
 test('hora mal escrita en el horario', () => assert.throws(() => fechaLimite({ forma: 'horas', horas: 1 }, lima('2026-09-28T10:00'), { semana: [null, ['7:00', '19:00'], LV, LV, LV, LV, null], feriados: [] }), /Hora no válida/));
+
+// 2026-09-27 es domingo.
+test('fin del día: lunes', () => igual(vence({ forma: 'fin_del_dia' }, '2026-09-28T10:00'), '2026-09-28T19:00'));
+test('fin del día: sábado', () => igual(vence({ forma: 'fin_del_dia' }, '2026-09-26T09:00'), '2026-09-26T13:00'));
+test('fin del día: salida con el archivo cerrado pasa a la siguiente apertura', () => igual(vence({ forma: 'fin_del_dia' }, '2026-09-27T10:00'), '2026-09-28T07:00'));

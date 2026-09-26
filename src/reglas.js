@@ -14,6 +14,9 @@ function fechaLimite(plazo, inicio, horario) {
   switch (plazo.forma) {
     case 'manual':
       return null;
+    case 'fin_del_dia':
+      vence = cierreDelDia(inicio, horario);
+      break;
     case 'horas':
     case 'horas_desde_alta':
       if (!(plazo.horas > 0)) throw new Error('Horas no válidas: ' + plazo.horas);
@@ -23,6 +26,12 @@ function fechaLimite(plazo, inicio, horario) {
       throw new Error('Forma de vencimiento desconocida: ' + plazo.forma);
   }
   return ajustarAlHorario(vence, horario);
+}
+
+// Cierre del archivo el día de inicio; si ese día no abre o ya cerró, el propio inicio.
+function cierreDelDia(inicio, horario) {
+  var tramo = tramoDelDia(inicio, horario);
+  return tramo && tramo.cierre >= inicio ? tramo.cierre : inicio;
 }
 
 // Si la fecha cae con el archivo cerrado, la corre a la siguiente apertura.
