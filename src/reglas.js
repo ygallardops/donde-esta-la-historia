@@ -64,4 +64,59 @@ function minutos(hhmm) {
   return Number(m[1]) * 60 + Number(m[2]);
 }
 
-if (typeof module !== 'undefined') module.exports = { fechaLimite: fechaLimite };
+// Número de historia sin espacios y en mayúsculas, validado con el formato que configura la IPRESS.
+// formato: { patron: 'expresión regular sin ^ ni $', quitarCeros: true | false }
+function normalizarNumero(texto, formato) {
+  var numero = String(texto).replace(/\s+/g, '').toUpperCase();
+  if (formato.quitarCeros) numero = numero.replace(/^0+(?=.)/, '');
+  var patron;
+  try {
+    patron = new RegExp('^(?:' + formato.patron + ')$');
+  } catch (e) {
+    throw new Error('Formato de número mal configurado: ' + formato.patron);
+  }
+  if (!patron.test(numero)) throw new Error('Número de historia no válido: ' + texto);
+  return numero;
+}
+
+// Índice del préstamo sin devolución de ese número, o -1. filas: [[numero, devolucion], ...]
+function prestamoAbierto(numero, filas) {
+  for (var i = filas.length - 1; i >= 0; i--) {
+    if (filas[i][0] === numero && filas[i][1] === '') return i;
+  }
+  return -1;
+}
+
+function esAutorizada(correo, autorizadas) {
+  var c = String(correo).trim().toLowerCase();
+  return c !== '' && autorizadas.some(function (a) { return String(a).trim().toLowerCase() === c; });
+}
+
+// 'AAAA-MM-DD' → medianoche de ese día en hora del Perú.
+function fechaDeTexto(texto) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) throw new Error('Fecha no válida: ' + texto);
+  var fecha = new Date(texto + 'T00:00:00-05:00');
+  if (isNaN(fecha)) throw new Error('Fecha no válida: ' + texto);
+  return fecha;
+}
+
+// Fecha límite al registrar la salida. null: en hospitalización, hasta registrar el egreso.
+// fechaManual ('AAAA-MM-DD') solo para la forma "manual": vence al cierre de ese día.
+function limiteAlSalir(plazo, salida, horario, fechaManual) {
+  if (plazo.forma === 'horas_desde_alta') return null;
+  if (plazo.forma !== 'manual') return fechaLimite(plazo, salida, horario);
+  if (!fechaManual) throw new Error('Falta la fecha de devolución');
+  var dia = fechaDeTexto(fechaManual);
+  if (dia.getTime() + DIA_MS <= salida.getTime()) throw new Error('La fecha de devolución es anterior a la salida');
+  return fechaLimite({ forma: 'fin_del_dia' }, dia, horario);
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    fechaLimite: fechaLimite,
+    normalizarNumero: normalizarNumero,
+    prestamoAbierto: prestamoAbierto,
+    esAutorizada: esAutorizada,
+    limiteAlSalir: limiteAlSalir
+  };
+}
