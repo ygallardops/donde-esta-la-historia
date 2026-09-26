@@ -79,6 +79,14 @@ function normalizarNumero(texto, formato) {
   return numero;
 }
 
+// Valor sí/no de la configuración; admite tilde y mayúsculas. Cualquier otro valor es un error.
+function siNo(valor, clave) {
+  var v = String(valor).trim().toLowerCase().replace('í', 'i');
+  if (v === 'si') return true;
+  if (v === 'no') return false;
+  throw new Error('Valor no válido en ' + clave + ': ' + valor);
+}
+
 // Índice del préstamo sin devolución de ese número, o -1. filas: [[numero, devolucion], ...]
 function prestamoAbierto(numero, filas) {
   for (var i = filas.length - 1; i >= 0; i--) {
@@ -117,6 +125,7 @@ if (typeof module !== 'undefined') {
     normalizarNumero: normalizarNumero,
     prestamoAbierto: prestamoAbierto,
     esAutorizada: esAutorizada,
-    limiteAlSalir: limiteAlSalir
+    limiteAlSalir: limiteAlSalir,
+    siNo: siNo
   };
 }

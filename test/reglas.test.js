@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir } = require('../src/reglas.js');
+const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir, siNo } = require('../src/reglas.js');
 
 // Horario de ejemplo: lunes a viernes de 7:00 a 19:00 y sábados de 7:00 a 13:00.
 const LV = ['07:00', '19:00'];
@@ -68,4 +68,13 @@ test('al salir: manual sin fecha o anterior a la salida', () => {
   assert.throws(() => limiteAlSalir({ forma: 'manual' }, lima('2026-09-28T10:00'), HORARIO), /Falta/);
   assert.throws(() => limiteAlSalir({ forma: 'manual' }, lima('2026-09-28T10:00'), HORARIO, '2026-09-27'), /anterior/);
   assert.throws(() => limiteAlSalir({ forma: 'manual' }, lima('2026-09-28T10:00'), HORARIO, '28/09/2026'), /Fecha no válida/);
+});
+
+test('sí o no: acepta tilde y mayúsculas', () => {
+  ['sí', 'si', 'SÍ', ' Si '].forEach((v) => assert.strictEqual(siNo(v, 'quitar_ceros'), true));
+  ['no', 'NO', ' No '].forEach((v) => assert.strictEqual(siNo(v, 'quitar_ceros'), false));
+});
+test('sí o no: otro valor es un error', () => {
+  assert.throws(() => siNo('', 'quitar_ceros'), /Valor no válido en quitar_ceros/);
+  assert.throws(() => siNo('tal vez', 'quitar_ceros'), /Valor no válido en quitar_ceros/);
 });

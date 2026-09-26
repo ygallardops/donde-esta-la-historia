@@ -120,7 +120,7 @@ function leerConfiguracion() {
   var ajustes = {};
   filas('configuracion').forEach(function (f) { ajustes[f[0]] = f[1]; });
   return {
-    formato: { patron: ajustes.formato_numero, quitarCeros: ajustes.quitar_ceros === 'sí' },
+    formato: { patron: ajustes.formato_numero, quitarCeros: siNo(ajustes.quitar_ceros, 'quitar_ceros') },
     plazos: plazos,
     servicios: filas('servicios').map(function (f) { return f[0]; }),
     horario: { semana: semana, feriados: feriados }
