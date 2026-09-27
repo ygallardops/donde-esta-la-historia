@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <style>
   body { font: 16px system-ui, sans-serif; margin: 16px; max-width: 720px; }
+  button { font-size: 16px; padding: 6px 12px; }
   [role=tab] { font-size: 16px; padding: 8px 16px; }
   [role=tab][aria-selected=true] { font-weight: bold; border-bottom: 3px solid; }
   label { display: block; margin: 8px 0; }
@@ -15,6 +16,8 @@
   #errores li { background: #fce8e6; margin: 4px 0; padding: 4px; }
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid #666; padding: 4px; text-align: left; }
+  .vencida { background: #fce8e6; }
+  #resultados { overflow-x: auto; }
   #impresion { display: none; }
   @media print {
     body > *:not(#impresion) { display: none; }
@@ -27,6 +30,8 @@
 <div role="tablist">
   <button role="tab" id="tab-salida" aria-selected="true" onclick="mostrar('salida')">Salida</button>
   <button role="tab" id="tab-devolucion" aria-selected="false" onclick="mostrar('devolucion')">Devolución</button>
+  <button role="tab" id="tab-seguimiento" aria-selected="false" onclick="mostrar('seguimiento')">Seguimiento</button>
+  <button role="tab" id="tab-consultas" aria-selected="false" onclick="mostrar('consultas')">Consultas</button>
 </div>
 <p id="mensaje" role="status" aria-live="polite"></p>
 <p id="pendientes"></p>
@@ -59,6 +64,32 @@
   <button>Registrar devolución</button>
 </form>
 
+<form id="seguimiento" hidden onsubmit="registrarSeguimiento(event)">
+  <label>Número de historia <input name="numero" required autocomplete="off"></label>
+  <label>Acción
+    <select name="accion" onchange="accionCambiada()">
+      <option value="cambiarTipo">Cambio de tipo</option>
+      <option value="registrarEgreso">Egreso o fin de la observación</option>
+      <option value="registrarRetencion">Retención justificada</option>
+    </select></label>
+  <label data-accion="cambiarTipo">Nuevo tipo <select name="tipo"></select></label>
+  <label data-accion="registrarEgreso" hidden>Fecha y hora del egreso o del fin de la observación
+    <input name="egreso" type="datetime-local"></label>
+  <label data-accion="registrarRetencion" hidden>Motivo (sin datos del paciente) <input name="motivo" autocomplete="off"></label>
+  <label data-accion="registrarRetencion" hidden>Nueva fecha de devolución <input name="fecha" type="date"></label>
+  <button>Registrar</button>
+</form>
+
+<div id="consultas" hidden>
+  <button type="button" onclick="verFuera()">Fuera ahora</button>
+  <label><input type="checkbox" id="solo-vencidas" style="width:auto"> Solo vencidas</label>
+  <form onsubmit="verHistorial(event)">
+    <label>Número de historia <input name="numero" required autocomplete="off"></label>
+    <button>Ver historial</button>
+  </form>
+</div>
+<div id="resultados"></div>
+
 <div id="impresion"></div>
 
 <script>
@@ -79,17 +110,112 @@
   function iniciar(conf) {
     var f = document.getElementById('salida');
     conf.servicios.forEach(function (s) { f.servicio.add(new Option(s)); });
-    conf.tipos.forEach(function (t) { formas[t.nombre] = t.forma; f.tipo.add(new Option(t.nombre)); });
+    var destino = document.getElementById('seguimiento').tipo;
+    conf.tipos.forEach(function (t) {
+      formas[t.nombre] = t.forma;
+      f.tipo.add(new Option(t.nombre));
+      if (t.forma === 'horas_desde_alta') destino.add(new Option(t.nombre));
+    });
     tipoCambiado();
     f.numero.focus();
   }
 
   function mostrar(cual) {
-    ['salida', 'devolucion'].forEach(function (id) {
+    ['salida', 'devolucion', 'seguimiento', 'consultas'].forEach(function (id) {
       document.getElementById(id).hidden = id !== cual;
       document.getElementById('tab-' + id).setAttribute('aria-selected', id === cual);
     });
-    document.getElementById(cual).numero.focus();
+    document.getElementById('resultados').replaceChildren();
+    var numero = document.getElementById(cual).querySelector('[name=numero]');
+    numero.focus();
+  }
+
+  // Muestra solo los campos de la acción elegida; el egreso se propone con la hora actual del Perú.
+  function accionCambiada() {
+    var f = document.getElementById('seguimiento');
+    f.querySelectorAll('[data-accion]').forEach(function (campo) {
+      campo.hidden = campo.getAttribute('data-accion') !== f.accion.value;
+    });
+    if (f.accion.value === 'registrarEgreso' && !f.egreso.value) {
+      f.egreso.value = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 16);
+    }
+  }
+
+  function registrarSeguimiento(evento) {
+    evento.preventDefault();
+    var f = evento.target;
+    var datos = { numero: f.numero.value, tipo: f.tipo.value, egreso: f.egreso.value,
+      motivo: f.motivo.value, fecha: f.fecha.value };
+    google.script.run.withFailureHandler(error).withSuccessHandler(function (mensaje) {
+      avisar(mensaje, true);
+      f.numero.value = '';
+      f.motivo.value = '';
+      f.fecha.value = '';
+      f.egreso.value = '';
+      accionCambiada();
+      f.numero.focus();
+    })[f.accion.value](datos);
+  }
+
+  function verFuera() {
+    avisar('Consultando…', true);
+    google.script.run.withFailureHandler(error).withSuccessHandler(function (fuera) {
+      var soloVencidas = document.getElementById('solo-vencidas').checked;
+      var lista = fuera.filter(function (p) { return !soloVencidas || p.vencida; });
+      var vencidas = fuera.filter(function (p) { return p.vencida; }).length;
+      avisar(cantidad(fuera.length, 'historia fuera', 'historias fuera') + ', ' + cantidad(vencidas, 'vencida', 'vencidas') + '.', true);
+      var zona = document.getElementById('resultados');
+      zona.replaceChildren();
+      var servicios = lista.map(function (p) { return p.servicio; })
+        .filter(function (s, i, todos) { return todos.indexOf(s) === i; });
+      servicios.forEach(function (servicio) {
+        var delServicio = lista.filter(function (p) { return p.servicio === servicio; });
+        agregar(zona, 'h3', servicio + ' (' + delServicio.length + ')');
+        tabla(zona, ['Número', 'Persona', 'Tipo', 'Salida', 'Fecha límite'], delServicio.map(function (p) {
+          return { celdas: [p.numero, p.persona, p.tipo, p.salida, p.limite + (p.vencida ? ' (vencida)' : '')],
+            clase: p.vencida ? 'vencida' : '' };
+        }));
+      });
+    }).fueraAhora();
+  }
+
+  function verHistorial(evento) {
+    evento.preventDefault();
+    var numero = evento.target.numero.value;
+    google.script.run.withFailureHandler(error).withSuccessHandler(function (filas) {
+      var zona = document.getElementById('resultados');
+      zona.replaceChildren();
+      avisar(filas.length ? cantidad(filas.length, 'préstamo', 'préstamos') + ' de la historia ' + numero + '.' : 'La historia ' + numero + ' no tiene préstamos registrados.', true);
+      if (!filas.length) return;
+      tabla(zona, ['Salida', 'Servicio', 'Persona', 'Tipo', 'Entrega', 'Egreso', 'Fecha límite', 'Retención',
+        'Devolución', 'Recibe', 'Integridad'], filas.map(function (r) {
+        return { celdas: [r.salida, r.servicio, r.persona, r.tipo, r.entrega, r.egreso, r.limite, r.retencion,
+          r.devolucion || 'sin devolver', r.recibe, r.integridad], clase: '' };
+      }));
+    }).historial(numero);
+  }
+
+  // Tabla con nodos de texto, sin HTML, porque incluye datos escritos por los usuarios.
+  function tabla(zona, cabeceras, filas) {
+    var t = agregar(zona, 'table');
+    var cabecera = agregar(t, 'tr');
+    cabeceras.forEach(function (c) { agregar(cabecera, 'th', c); });
+    filas.forEach(function (f) {
+      var fila = agregar(t, 'tr');
+      if (f.clase) fila.className = f.clase;
+      f.celdas.forEach(function (c) { agregar(fila, 'td', String(c)); });
+    });
+  }
+
+  function cantidad(n, singular, plural) {
+    return n + ' ' + (n === 1 ? singular : plural);
+  }
+
+  function agregar(padre, etiqueta, contenido) {
+    var nodo = document.createElement(etiqueta);
+    if (contenido !== undefined) nodo.textContent = contenido;
+    padre.appendChild(nodo);
+    return nodo;
   }
 
   function tipoCambiado() {
@@ -184,7 +310,7 @@
 
   function resumirCargo() {
     document.getElementById('cargo-resumen').textContent = cargo.length
-      ? cargo.length + ' historias para ' + cargo[0].servicio + ', recibe ' + cargo[0].persona + '.'
+      ? cantidad(cargo.length, 'historia', 'historias') + ' para ' + cargo[0].servicio + ', recibe ' + cargo[0].persona + '.'
       : 'Sin historias.';
   }
 
@@ -216,12 +342,6 @@
   function imprimir(filas) {
     var zona = document.getElementById('impresion');
     zona.replaceChildren();
-    function agregar(padre, etiqueta, contenido) {
-      var nodo = document.createElement(etiqueta);
-      if (contenido !== undefined) nodo.textContent = contenido;
-      padre.appendChild(nodo);
-      return nodo;
-    }
     var entregas = filas.map(function (r) { return r.entrega; })
       .filter(function (e, i, todas) { return todas.indexOf(e) === i; });
     agregar(zona, 'h1', 'Cargo de salida de historias clínicas');
