@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir, siNo } = require('../src/reglas.js');
+const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir, siNo, diaLocal, salidasDelCargo } = require('../src/reglas.js');
 
 // Horario de ejemplo: lunes a viernes de 7:00 a 19:00 y sábados de 7:00 a 13:00.
 const LV = ['07:00', '19:00'];
@@ -78,3 +78,17 @@ test('sí o no: otro valor es un error', () => {
   assert.throws(() => siNo('', 'quitar_ceros'), /Valor no válido en quitar_ceros/);
   assert.throws(() => siNo('tal vez', 'quitar_ceros'), /Valor no válido en quitar_ceros/);
 });
+
+test('día local: las 23:30 del Perú siguen siendo el mismo día', () => assert.strictEqual(diaLocal(lima('2026-09-28T23:30')), '2026-09-28'));
+
+const SALIDAS = [
+  { numero: '1', servicio: 'Emergencia', persona: 'Ana Soto', salida: lima('2026-09-27T23:50') },
+  { numero: '2', servicio: 'Emergencia', persona: 'Ana Soto', salida: lima('2026-09-28T08:00') },
+  { numero: '3', servicio: 'Emergencia', persona: 'Luis Díaz', salida: lima('2026-09-28T08:05') },
+  { numero: '4', servicio: 'Consulta externa', persona: 'Ana Soto', salida: lima('2026-09-28T08:10') },
+  { numero: '5', servicio: 'Emergencia', persona: '  ana   SOTO ', salida: lima('2026-09-28T09:00') }
+];
+test('cargo: solo el día, el servicio y la persona indicados, en orden', () =>
+  assert.deepStrictEqual(salidasDelCargo(SALIDAS, '2026-09-28', 'Emergencia', 'Ana Soto').map((s) => s.numero), ['2', '5']));
+test('cargo: sin salidas que coincidan', () =>
+  assert.deepStrictEqual(salidasDelCargo(SALIDAS, '2026-09-29', 'Emergencia', 'Ana Soto'), []));

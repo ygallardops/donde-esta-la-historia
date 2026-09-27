@@ -119,6 +119,21 @@ function limiteAlSalir(plazo, salida, horario, fechaManual) {
   return fechaLimite({ forma: 'fin_del_dia' }, dia, horario);
 }
 
+// Día 'AAAA-MM-DD' en hora del Perú.
+function diaLocal(fecha) {
+  return new Date(fecha.getTime() + DESFASE_MS).toISOString().slice(0, 10);
+}
+
+// Salidas de un día para un servicio y una persona, en el orden en que se registraron.
+// La persona se compara sin distinguir mayúsculas ni espacios de más.
+function salidasDelCargo(salidas, dia, servicio, persona) {
+  var normal = function (texto) { return String(texto).trim().replace(/\s+/g, ' ').toLowerCase(); };
+  return salidas.filter(function (s) {
+    return s.salida instanceof Date && diaLocal(s.salida) === dia && s.servicio === servicio &&
+      normal(s.persona) === normal(persona);
+  });
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     fechaLimite: fechaLimite,
@@ -126,6 +141,8 @@ if (typeof module !== 'undefined') {
     prestamoAbierto: prestamoAbierto,
     esAutorizada: esAutorizada,
     limiteAlSalir: limiteAlSalir,
-    siNo: siNo
+    siNo: siNo,
+    diaLocal: diaLocal,
+    salidasDelCargo: salidasDelCargo
   };
 }
