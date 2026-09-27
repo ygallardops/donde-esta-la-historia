@@ -108,15 +108,63 @@ function fechaDeTexto(texto) {
   return fecha;
 }
 
-// Fecha límite al registrar la salida. null: en hospitalización, hasta registrar el egreso.
+// 'AAAA-MM-DDTHH:MM' (campo de fecha y hora de la página) → esa fecha y hora del Perú.
+function fechaHoraDeTexto(texto) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(texto)) throw new Error('Fecha y hora no válidas: ' + texto);
+  var fecha = new Date(texto + ':00-05:00');
+  if (isNaN(fecha)) throw new Error('Fecha y hora no válidas: ' + texto);
+  return fecha;
+}
+
+// Fecha límite al registrar la salida. null: espera el egreso o el fin de la observación.
 // fechaManual ('AAAA-MM-DD') solo para la forma "manual": vence al cierre de ese día.
 function limiteAlSalir(plazo, salida, horario, fechaManual) {
   if (plazo.forma === 'horas_desde_alta') return null;
   if (plazo.forma !== 'manual') return fechaLimite(plazo, salida, horario);
-  if (!fechaManual) throw new Error('Falta la fecha de devolución');
-  var dia = fechaDeTexto(fechaManual);
-  if (dia.getTime() + DIA_MS <= salida.getTime()) throw new Error('La fecha de devolución es anterior a la salida');
+  return limiteManual(fechaManual, salida, horario);
+}
+
+// Fecha elegida a mano (docencia o retención): vence al cierre del archivo ese día. No puede ser anterior a "desde".
+function limiteManual(fechaTexto, desde, horario) {
+  if (!fechaTexto) throw new Error('Falta la fecha de devolución');
+  var dia = fechaDeTexto(fechaTexto);
+  if (dia.getTime() + DIA_MS <= desde.getTime()) throw new Error('La fecha de devolución es anterior a hoy');
   return fechaLimite({ forma: 'fin_del_dia' }, dia, horario);
+}
+
+// Cambio de tipo sin nueva salida: solo hacia un tipo que espera el egreso o el fin de la observación.
+function validarCambioDeTipo(tipoActual, egreso, tipoNuevo, plazoNuevo) {
+  if (!plazoNuevo) throw new Error('Tipo de préstamo no válido');
+  if (plazoNuevo.forma !== 'horas_desde_alta') {
+    throw new Error('Solo se puede cambiar a un tipo que espera el egreso o el fin de la observación');
+  }
+  if (tipoNuevo === tipoActual) throw new Error('La historia ya está en ' + tipoNuevo);
+  if (egreso) throw new Error('Ya se registró el egreso o el fin de la observación');
+}
+
+// Fecha límite al registrar el egreso o el fin de la observación.
+function limiteTrasEgreso(plazo, salida, egreso, ahora, horario) {
+  if (plazo.forma !== 'horas_desde_alta') throw new Error('Este préstamo no espera un egreso ni el fin de una observación');
+  // El campo de la página tiene precisión de minuto: se tolera un egreso en el mismo minuto de la salida.
+  if (egreso.getTime() < salida.getTime() - 60000) throw new Error('El egreso es anterior a la salida');
+  if (egreso > ahora) throw new Error('El egreso no puede ser posterior a este momento');
+  return fechaLimite(plazo, egreso, horario);
+}
+
+// Préstamos sin devolución, marcados si vencieron, por servicio y fecha límite (los que no tienen límite, al final).
+function prestamosFuera(prestamos, ahora) {
+  var fuera = [];
+  prestamos.forEach(function (p) {
+    if (p.devolucion) return;
+    var copia = {};
+    Object.keys(p).forEach(function (k) { copia[k] = p[k]; });
+    copia.vencida = p.limite instanceof Date && p.limite < ahora;
+    fuera.push(copia);
+  });
+  var tiempo = function (p) { return p.limite instanceof Date ? p.limite.getTime() : Infinity; };
+  return fuera.sort(function (a, b) {
+    return a.servicio.localeCompare(b.servicio, 'es') || tiempo(a) - tiempo(b);
+  });
 }
 
 // Día 'AAAA-MM-DD' en hora del Perú.
@@ -143,6 +191,11 @@ if (typeof module !== 'undefined') {
     limiteAlSalir: limiteAlSalir,
     siNo: siNo,
     diaLocal: diaLocal,
-    salidasDelCargo: salidasDelCargo
+    salidasDelCargo: salidasDelCargo,
+    fechaHoraDeTexto: fechaHoraDeTexto,
+    limiteManual: limiteManual,
+    validarCambioDeTipo: validarCambioDeTipo,
+    limiteTrasEgreso: limiteTrasEgreso,
+    prestamosFuera: prestamosFuera
   };
 }

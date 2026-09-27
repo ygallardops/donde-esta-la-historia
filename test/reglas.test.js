@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir, siNo, diaLocal, salidasDelCargo } = require('../src/reglas.js');
+const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir, siNo, diaLocal, salidasDelCargo,
+  fechaHoraDeTexto, limiteManual, validarCambioDeTipo, limiteTrasEgreso, prestamosFuera } = require('../src/reglas.js');
 
 // Horario de ejemplo: lunes a viernes de 7:00 a 19:00 y sábados de 7:00 a 13:00.
 const LV = ['07:00', '19:00'];
@@ -92,3 +93,48 @@ test('cargo: solo el día, el servicio y la persona indicados, en orden', () =>
   assert.deepStrictEqual(salidasDelCargo(SALIDAS, '2026-09-28', 'Emergencia', 'Ana Soto').map((s) => s.numero), ['2', '5']));
 test('cargo: sin salidas que coincidan', () =>
   assert.deepStrictEqual(salidasDelCargo(SALIDAS, '2026-09-29', 'Emergencia', 'Ana Soto'), []));
+
+test('fecha y hora del campo de la página', () => {
+  igual(fechaHoraDeTexto('2026-09-28T14:30'), '2026-09-28T14:30');
+  assert.throws(() => fechaHoraDeTexto('28/09/2026 14:30'), /no válidas/);
+});
+
+test('retención: vence al cierre del día elegido', () => igual(limiteManual('2026-09-30', lima('2026-09-28T10:00'), HORARIO), '2026-09-30T19:00'));
+test('retención: fecha anterior a hoy o vacía', () => {
+  assert.throws(() => limiteManual('2026-09-27', lima('2026-09-28T10:00'), HORARIO), /anterior a hoy/);
+  assert.throws(() => limiteManual('', lima('2026-09-28T10:00'), HORARIO), /Falta/);
+});
+
+const HOSP = { forma: 'horas_desde_alta', horas: 48 };
+test('cambio de tipo: a hospitalización u observación', () => assert.doesNotThrow(() => validarCambioDeTipo('Emergencia', '', 'Hospitalización', HOSP)));
+test('cambio de tipo: rechazos', () => {
+  assert.throws(() => validarCambioDeTipo('Emergencia', '', 'Docencia', { forma: 'manual' }), /Solo se puede cambiar/);
+  assert.throws(() => validarCambioDeTipo('Hospitalización', '', 'Hospitalización', HOSP), /ya está en/);
+  assert.throws(() => validarCambioDeTipo('Observación', lima('2026-09-28T10:00'), 'Hospitalización', HOSP), /Ya se registró/);
+  assert.throws(() => validarCambioDeTipo('Emergencia', '', 'Otro', undefined), /no válido/);
+});
+
+test('egreso: el plazo corre desde el egreso', () =>
+  igual(limiteTrasEgreso(HOSP, lima('2026-09-25T10:00'), lima('2026-09-28T10:00'), lima('2026-09-28T12:00'), HORARIO), '2026-09-30T10:00'));
+test('fin de observación: vuelven a correr 24 horas', () =>
+  igual(limiteTrasEgreso({ forma: 'horas_desde_alta', horas: 24 }, lima('2026-09-28T02:00'), lima('2026-09-28T09:00'), lima('2026-09-28T12:00'), HORARIO), '2026-09-29T09:00'));
+test('egreso: rechazos', () => {
+  assert.throws(() => limiteTrasEgreso({ forma: 'horas', horas: 24 }, lima('2026-09-28T10:00'), lima('2026-09-28T11:00'), lima('2026-09-28T12:00'), HORARIO), /no espera/);
+  assert.throws(() => limiteTrasEgreso(HOSP, lima('2026-09-28T10:00'), lima('2026-09-28T09:00'), lima('2026-09-28T12:00'), HORARIO), /anterior a la salida/);
+  assert.throws(() => limiteTrasEgreso(HOSP, lima('2026-09-28T10:00'), lima('2026-09-28T13:00'), lima('2026-09-28T12:00'), HORARIO), /posterior/);
+});
+
+test('fuera ahora: sin devueltas, vencidas marcadas, por servicio y fecha límite', () => {
+  const ahora = lima('2026-09-28T12:00');
+  const fuera = prestamosFuera([
+    { numero: '1', servicio: 'Emergencia', limite: lima('2026-09-29T10:00'), devolucion: '' },
+    { numero: '2', servicio: 'Consulta externa', limite: lima('2026-09-28T19:00'), devolucion: '' },
+    { numero: '3', servicio: 'Emergencia', limite: '', devolucion: '' },
+    { numero: '4', servicio: 'Emergencia', limite: lima('2026-09-27T10:00'), devolucion: '' },
+    { numero: '5', servicio: 'Emergencia', limite: lima('2026-09-27T10:00'), devolucion: lima('2026-09-27T09:00') }
+  ], ahora);
+  assert.deepStrictEqual(fuera.map((p) => p.numero + (p.vencida ? '!' : '')), ['2', '4!', '1', '3']);
+});
+
+test('egreso en el mismo minuto de la salida', () =>
+  assert.doesNotThrow(() => limiteTrasEgreso(HOSP, lima('2026-09-28T10:00:35'), lima('2026-09-28T10:00'), lima('2026-09-28T12:00'), HORARIO)));
