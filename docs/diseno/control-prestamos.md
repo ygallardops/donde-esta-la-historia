@@ -51,6 +51,8 @@ Campos: número de historia, servicio (lista), nombre y apellido completos de la
 
 Después de registrar las salidas de un servicio, la página genera un cargo imprimible con los números de historia, el servicio, la fecha y hora, la cuenta que entrega y el nombre de quien recibe, con espacio para su firma manuscrita (numeral 5.3.1, inciso 5), literal b).
 
+Si el cargo se pierde antes de imprimirse, «Reimprimir cargo de hoy» lo arma desde la hoja con las salidas del día para ese servicio y esa persona.
+
 ### Registrar una devolución
 
 Se escribe el número de historia y se indica la **integridad**: «conforme» (por defecto) o «con observaciones», con una observación breve. Quedan registradas la fecha, la hora y la cuenta que la recibe. Si la historia no figura como prestada, se muestra un aviso y no se registra nada.
@@ -139,6 +141,8 @@ Google Sheets admite hasta 10 millones de celdas por archivo. Con 16 columnas en
 ## Arquitectura
 
 - **Página web de Apps Script** con dos pestañas, Salida y Devolución, pensada para el teclado: escribir el número y presionar Enter. Se ejecuta como la cuenta propietaria del archivo, con acceso restringido al dominio. La hoja no se comparte con quienes registran: solo escriben a través de la página. La cuenta de quien registra se obtiene con `Session.getActiveUser()`, que la devuelve cuando pertenece al mismo dominio de Google Workspace.
+- **Registro sin espera:** la página envía los registros en cola, de uno en uno y en orden, mientras se sigue escribiendo. Los rechazos quedan listados con su número.
+- **Caché de configuración:** las pestañas de configuración y la lista de cuentas se guardan en caché 10 minutos; un activador al editar la hoja la borra para que los cambios se apliquen al instante.
 - **Escrituras de una en una** con `LockService`, para que dos personas que registran al mismo tiempo no se pisen.
 - **Reglas en JavaScript puro** (`src/reglas.js`): cálculo de la fecha límite, ajuste al horario, cambio de tipo, estado de una historia y validaciones. No dependen de Google.
 - **Capa delgada de Apps Script** (`src/app.js`): lee y escribe en la hoja, sirve la página y envía el aviso a Chat.
