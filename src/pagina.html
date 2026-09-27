@@ -12,6 +12,7 @@
   #mensaje { padding: 8px; min-height: 1.5em; }
   .ok { background: #e6f4ea; }
   .error { background: #fce8e6; }
+  #errores li { background: #fce8e6; margin: 4px 0; padding: 4px; }
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid #666; padding: 4px; text-align: left; }
   #impresion { display: none; }
@@ -28,6 +29,12 @@
   <button role="tab" id="tab-devolucion" aria-selected="false" onclick="mostrar('devolucion')">Devolución</button>
 </div>
 <p id="mensaje" role="status" aria-live="polite"></p>
+<p id="pendientes"></p>
+<div id="zona-errores" hidden>
+  <h2>No se registraron</h2>
+  <ul id="errores"></ul>
+  <button type="button" onclick="limpiarErrores()">Limpiar lista</button>
+</div>
 
 <form id="salida" onsubmit="registrarSalida(event)">
   <label>Servicio <select name="servicio" required></select></label>
@@ -41,6 +48,7 @@
   <p id="cargo-resumen">Sin historias.</p>
   <button type="button" onclick="imprimirCargo()">Imprimir cargo</button>
   <button type="button" onclick="nuevoCargo()">Nuevo cargo</button>
+  <button type="button" onclick="reimprimirCargo()">Reimprimir cargo de hoy</button>
 </form>
 
 <form id="devolucion" hidden onsubmit="registrarDevolucion(event)">
@@ -55,9 +63,18 @@
 
 <script>
   var formas = {};
-  var cargo = [];
+  var cargo = [];     // salidas ya registradas del cargo actual
+  var cola = [];      // registros por enviar, en el orden en que se escribieron
+  var enviando = false;
 
   google.script.run.withSuccessHandler(iniciar).withFailureHandler(error).configuracion();
+
+  window.addEventListener('beforeunload', function (e) {
+    if (cola.length) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
 
   function iniciar(conf) {
     var f = document.getElementById('salida');
@@ -82,36 +99,87 @@
     f.fechaManual.required = manual;
   }
 
+  // Servicio y persona del cargo actual: los de su primera salida, registrada o en cola.
+  function loteActual() {
+    var enCola = cola.filter(function (t) { return t.funcion === 'registrarSalida'; })[0];
+    return cargo[0] || (enCola && enCola.datos) || null;
+  }
+
+  function salidasEnCola() {
+    return cola.some(function (t) { return t.funcion === 'registrarSalida'; });
+  }
+
   function registrarSalida(evento) {
     evento.preventDefault();
     var f = evento.target;
     var datos = { numero: f.numero.value, servicio: f.servicio.value, persona: f.persona.value.trim(),
       tipo: f.tipo.value, fechaManual: f.fechaManual.value };
-    if (cargo.length && (cargo[0].servicio !== datos.servicio || cargo[0].persona !== datos.persona)) {
-      return avisar('El cargo es de ' + cargo[0].servicio + ' y ' + cargo[0].persona +
+    var lote = loteActual();
+    if (lote && (lote.servicio !== datos.servicio || lote.persona !== datos.persona)) {
+      return avisar('El cargo es de ' + lote.servicio + ' y ' + lote.persona +
         '. Imprímalo o inicie un nuevo cargo antes de cambiar de servicio o de persona.', false);
     }
-    google.script.run.withFailureHandler(error).withSuccessHandler(function (r) {
+    encolar('registrarSalida', datos, function (r) {
       cargo.push(r);
       resumirCargo();
-      avisar('Salida registrada: ' + r.numero + '. Fecha límite: ' + r.limite + '.', true);
-      f.numero.value = '';
-      f.numero.focus();
-    }).registrarSalida(datos);
+      return 'Salida registrada: ' + r.numero + '. Fecha límite: ' + r.limite + '.';
+    });
+    f.numero.value = '';
+    f.numero.focus();
   }
 
   function registrarDevolucion(evento) {
     evento.preventDefault();
     var f = evento.target;
     var datos = { numero: f.numero.value, integridad: f.integridad.value, observacion: f.observacion.value };
-    google.script.run.withFailureHandler(error).withSuccessHandler(function (r) {
-      avisar('Devolución registrada: ' + r.numero + ' (' + r.servicio + ')' +
-        (r.vencida ? '. Se devolvió después de la fecha límite.' : '.'), true);
-      f.numero.value = '';
-      f.integridad.value = 'conforme';
-      f.observacion.value = '';
-      f.numero.focus();
-    }).registrarDevolucion(datos);
+    encolar('registrarDevolucion', datos, function (r) {
+      return 'Devolución registrada: ' + r.numero + ' (' + r.servicio + ')' +
+        (r.vencida ? '. Se devolvió después de la fecha límite.' : '.');
+    });
+    f.numero.value = '';
+    f.integridad.value = 'conforme';
+    f.observacion.value = '';
+    f.numero.focus();
+  }
+
+  // Los registros se envían de uno en uno, en orden, sin bloquear la página.
+  function encolar(funcion, datos, alTerminar) {
+    cola.push({ funcion: funcion, datos: datos, alTerminar: alTerminar });
+    mostrarPendientes();
+    enviarSiguiente();
+  }
+
+  function enviarSiguiente() {
+    if (enviando || !cola.length) return;
+    enviando = true;
+    var tarea = cola[0];
+    google.script.run
+      .withSuccessHandler(function (r) { avisar(tarea.alTerminar(r), true); terminar(); })
+      .withFailureHandler(function (e) { anotarError(tarea.datos.numero, e); terminar(); })
+      [tarea.funcion](tarea.datos);
+  }
+
+  function terminar() {
+    cola.shift();
+    enviando = false;
+    mostrarPendientes();
+    enviarSiguiente();
+  }
+
+  function mostrarPendientes() {
+    document.getElementById('pendientes').textContent = cola.length ? 'Por registrar: ' + cola.length + '.' : '';
+  }
+
+  function anotarError(numero, e) {
+    var item = document.createElement('li');
+    item.textContent = numero + ': ' + (e.message || String(e));
+    document.getElementById('errores').appendChild(item);
+    document.getElementById('zona-errores').hidden = false;
+  }
+
+  function limpiarErrores() {
+    document.getElementById('errores').replaceChildren();
+    document.getElementById('zona-errores').hidden = true;
   }
 
   function resumirCargo() {
@@ -121,13 +189,31 @@
   }
 
   function nuevoCargo() {
+    if (salidasEnCola()) return avisar('Espere a que terminen de registrarse las salidas pendientes.', false);
     cargo = [];
     resumirCargo();
   }
 
-  // Arma el cargo con nodos de texto, sin HTML, porque incluye el nombre escrito por el usuario.
   function imprimirCargo() {
+    if (salidasEnCola()) return avisar('Espere a que terminen de registrarse las salidas pendientes.', false);
     if (!cargo.length) return avisar('El cargo no tiene historias.', false);
+    imprimir(cargo);
+  }
+
+  // Arma el cargo desde la hoja con las salidas de hoy del servicio y la persona del formulario.
+  function reimprimirCargo() {
+    var f = document.getElementById('salida');
+    var servicio = f.servicio.value;
+    var persona = f.persona.value.trim();
+    if (!persona) return avisar('Escriba el nombre de la persona que recibió las historias.', false);
+    google.script.run.withFailureHandler(error).withSuccessHandler(function (filas) {
+      if (!filas.length) return avisar('No hay salidas de hoy para ' + servicio + ' y ' + persona + '.', false);
+      imprimir(filas);
+    }).cargoDeHoy(servicio, persona);
+  }
+
+  // Arma el cargo con nodos de texto, sin HTML, porque incluye el nombre escrito por el usuario.
+  function imprimir(filas) {
     var zona = document.getElementById('impresion');
     zona.replaceChildren();
     function agregar(padre, etiqueta, contenido) {
@@ -136,14 +222,16 @@
       padre.appendChild(nodo);
       return nodo;
     }
+    var entregas = filas.map(function (r) { return r.entrega; })
+      .filter(function (e, i, todas) { return todas.indexOf(e) === i; });
     agregar(zona, 'h1', 'Cargo de salida de historias clínicas');
-    agregar(zona, 'p', 'Servicio: ' + cargo[0].servicio);
-    agregar(zona, 'p', 'Entrega: ' + cargo[0].entrega);
-    agregar(zona, 'p', 'Recibe: ' + cargo[0].persona);
+    agregar(zona, 'p', 'Servicio: ' + filas[0].servicio);
+    agregar(zona, 'p', 'Entrega: ' + entregas.join(', '));
+    agregar(zona, 'p', 'Recibe: ' + filas[0].persona);
     var tabla = agregar(zona, 'table');
     var cabecera = agregar(tabla, 'tr');
     ['N.°', 'Número de historia', 'Salida', 'Fecha límite'].forEach(function (t) { agregar(cabecera, 'th', t); });
-    cargo.forEach(function (r, i) {
+    filas.forEach(function (r, i) {
       var fila = agregar(tabla, 'tr');
       [String(i + 1), r.numero, r.salida, r.limite].forEach(function (t) { agregar(fila, 'td', t); });
     });
