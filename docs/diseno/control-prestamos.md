@@ -61,25 +61,24 @@ La cuenta institucional que registra la salida o la devolución queda como const
 
 ### Cambio de tipo
 
-Una historia prestada para consulta ambulatoria o para emergencia puede cambiar de tipo sin registrar una nueva salida, porque la NTS exceptúa esos plazos cuando el paciente es hospitalizado o, en emergencia, cuando permanece en sala de observación (numeral 5.3.2, inciso 3), subnumeral 3.3, literales f y h). Se conservan la salida original y el tipo inicial, se registran la fecha y hora del cambio y se recalcula la fecha límite según el nuevo tipo.
+Una historia prestada para consulta ambulatoria o para emergencia puede cambiar de tipo sin registrar una nueva salida, porque la NTS exceptúa esos plazos cuando el paciente es hospitalizado o, en emergencia, cuando permanece en sala de observación (numeral 5.3.2, inciso 3), subnumeral 3.3, literales f y h). El cambio solo puede hacerse hacia un tipo que espera el egreso o el fin de la observación, y antes de registrarlo. Se conservan la salida original y el tipo inicial, se registran la fecha y hora del cambio y la historia queda sin fecha límite hasta el egreso o el fin de la observación.
 
 ### Hospitalización
 
-El plazo corre desde el egreso del paciente. Al salir o al cambiar de tipo, la historia queda como «en hospitalización», sin fecha límite. Cuando se registra la fecha de egreso, se calcula la fecha límite.
+El plazo corre desde el egreso del paciente. Al salir o al cambiar de tipo, la historia queda sin fecha límite. Cuando se registran la fecha y hora de egreso, se calcula la fecha límite. El egreso no puede ser anterior a la salida ni posterior al momento en que se registra.
 
 ### Observación en emergencia
 
-La NTS exceptúa del plazo de 24 horas a la historia del paciente que permanece en sala de observación, pero no fija otro plazo. Como decisión de diseño, al cambiar de tipo la historia queda como «en observación», sin fecha límite. Cuando se registra el fin de la observación, vuelven a correr las 24 horas del préstamo de emergencia. Si el paciente pasa a hospitalización, se aplica el cambio de tipo correspondiente.
+La NTS exceptúa del plazo de 24 horas a la historia del paciente que permanece en sala de observación, pero no fija otro plazo. Como decisión de diseño, la observación se configura como un tipo de préstamo más, «Observación de emergencia», con la forma `horas_desde_alta` y 24 horas: al cambiar a ese tipo, la historia queda sin fecha límite, y cuando se registra el fin de la observación vuelven a correr 24 horas. El fin de la observación se registra igual que un egreso. Si el paciente pasa a hospitalización antes, se aplica el cambio de tipo correspondiente.
 
 ### Retención justificada
 
-Para una historia prestada se registran el motivo y la nueva fecha de devolución. Desde ese momento, la nueva fecha reemplaza a la fecha límite anterior. El registro no sustituye el reporte escrito que exige la NTS (numeral 5.3.1, inciso 5), literal f).
+Para una historia prestada que tiene fecha límite se registran el motivo y la nueva fecha de devolución, que vence al cierre del archivo ese día y no puede ser anterior a hoy. Desde ese momento, la nueva fecha reemplaza a la fecha límite anterior. Si hay varias retenciones, se conservan todos los motivos con su fecha y hora. El registro no sustituye el reporte escrito que exige la NTS (numeral 5.3.1, inciso 5), literal f).
 
 ### Consultas
 
-- **Fuera ahora:** historias prestadas, agrupadas por servicio.
-- **Vencidas:** historias con la fecha límite superada.
-- **Historial:** todos los movimientos de un número de historia.
+- **Fuera ahora:** historias prestadas, agrupadas por servicio y ordenadas por fecha límite, con las vencidas marcadas y un filtro para ver solo esas.
+- **Historial:** todos los préstamos de un número de historia, del más reciente al más antiguo.
 
 ### Aviso diario
 
@@ -93,7 +92,7 @@ La tabla de plazos admite tres formas de vencimiento:
 | --- | --- |
 | `fin_del_dia` | Cierre del archivo el mismo día de la salida |
 | `horas` | N horas corridas desde la salida |
-| `horas_desde_alta` | N horas corridas desde el egreso |
+| `horas_desde_alta` | N horas corridas desde el egreso o el fin de la observación |
 
 En docencia e investigación no hay fórmula: la fecha límite la fija quien registra la salida.
 
@@ -104,6 +103,7 @@ Configuración de ejemplo del repositorio:
 | Consulta ambulatoria | `fin_del_dia` | — | NTS, 5.3.2, inc. 3), 3.3, lit. f: «el mismo día de la atención» |
 | Emergencia | `horas` | 24 | NTS, 5.3.2, inc. 3), 3.3, lit. h |
 | Hospitalización | `horas_desde_alta` | 48 | NTS, 5.3.2, inc. 3), 3.3, lit. g |
+| Observación de emergencia | `horas_desde_alta` | 24 | NTS, 5.3.2, inc. 3), 3.3, lit. h (la excepción); las 24 horas son decisión de diseño |
 | Informes médicos y auditoría médica | `horas` | 72 | NTS, 5.3.1, inc. 5), lit. c |
 | Docencia e investigación | fecha manual | — | NTS, 5.3.2, inc. 3), 3.2, lit. a: la revisión se hace en el archivo y la IPRESS establece los requisitos de solicitud y devolución |
 
