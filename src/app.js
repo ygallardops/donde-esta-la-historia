@@ -60,7 +60,7 @@ function registrarSalida(datos) {
     hoja.appendRow(fila);
     return {
       numero: numero, servicio: datos.servicio, persona: persona, entrega: correo,
-      salida: texto(salida), limite: limite ? texto(limite) : 'en hospitalización'
+      salida: texto(salida), limite: textoLimite(limite)
     };
   });
 }
@@ -83,6 +83,32 @@ function registrarDevolucion(datos) {
     return {
       numero: numero, servicio: abierto[COL.servicio], devolucion: texto(devolucion),
       vencida: limite instanceof Date && devolucion > limite
+    };
+  });
+}
+
+// Salidas de hoy para un servicio y una persona, para reimprimir su cargo.
+// Las filas están en orden de registro, así que solo se leen las de hoy, desde el final.
+function cargoDeHoy(servicio, persona) {
+  cuentaActual();
+  var hoja = libro().getSheetByName('movimientos');
+  var total = hoja.getLastRow() - 1;
+  if (total < 1) return [];
+  var hoy = diaLocal(new Date());
+  var salidas = hoja.getRange(2, COL.salida + 1, total, 1).getValues();
+  var desde = total;
+  while (desde > 0 && salidas[desde - 1][0] instanceof Date && diaLocal(salidas[desde - 1][0]) === hoy) desde--;
+  if (desde === total) return [];
+  var deHoy = hoja.getRange(desde + 2, 1, total - desde, COLUMNAS.length).getValues().map(function (f) {
+    return {
+      numero: String(f[COL.numero]), servicio: f[COL.servicio], persona: f[COL.persona_autorizada],
+      salida: f[COL.salida], limite: f[COL.fecha_limite], entrega: f[COL.registrado_por]
+    };
+  });
+  return salidasDelCargo(deHoy, hoy, servicio, persona).map(function (s) {
+    return {
+      numero: s.numero, servicio: s.servicio, persona: s.persona, entrega: s.entrega,
+      salida: texto(s.salida), limite: textoLimite(s.limite)
     };
   });
 }
@@ -184,6 +210,10 @@ function conBloqueo(fn) {
 
 function texto(fecha) {
   return Utilities.formatDate(fecha, 'America/Lima', 'dd/MM/yyyy HH:mm');
+}
+
+function textoLimite(limite) {
+  return limite instanceof Date ? texto(limite) : 'en hospitalización';
 }
 
 // Se ejecuta una sola vez desde el editor: crea la hoja con la configuración de ejemplo.
