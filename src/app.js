@@ -113,6 +113,114 @@ function cargoDeHoy(servicio, persona) {
   });
 }
 
+// Cambia el tipo de un préstamo abierto a uno que espera el egreso o el fin de la observación.
+function cambiarTipo(datos) {
+  cuentaActual();
+  var conf = leerConfiguracion();
+  var numero = normalizarNumero(datos.numero, conf.formato);
+  return conBloqueo(function () {
+    var hoja = libro().getSheetByName('movimientos');
+    var abierto = abiertoOError(hoja, numero);
+    validarCambioDeTipo(abierto[COL.tipo_actual], abierto[COL.fin_observacion_o_egreso], datos.tipo, conf.plazos[datos.tipo]);
+    escribir(hoja, abierto.fila, { tipo_actual: datos.tipo, cambio_de_tipo: new Date(), fecha_limite: '' });
+    return 'La historia ' + numero + ' pasó a ' + datos.tipo + '. Queda sin fecha límite hasta registrar el egreso o el fin de la observación.';
+  });
+}
+
+// Registra el egreso o el fin de la observación y calcula la fecha límite desde ese momento.
+function registrarEgreso(datos) {
+  cuentaActual();
+  var conf = leerConfiguracion();
+  var numero = normalizarNumero(datos.numero, conf.formato);
+  var egreso = fechaHoraDeTexto(datos.egreso);
+  return conBloqueo(function () {
+    var hoja = libro().getSheetByName('movimientos');
+    var abierto = abiertoOError(hoja, numero);
+    if (abierto[COL.fin_observacion_o_egreso]) throw new Error('Ya se registró el egreso o el fin de la observación');
+    var limite = limiteTrasEgreso(conf.plazos[abierto[COL.tipo_actual]], abierto[COL.salida], egreso, new Date(), conf.horario);
+    escribir(hoja, abierto.fila, { fin_observacion_o_egreso: egreso, fecha_limite: limite });
+    return 'Egreso registrado para la historia ' + numero + '. Fecha límite: ' + texto(limite) + '.';
+  });
+}
+
+// Retención justificada: guarda el motivo con su fecha y reemplaza la fecha límite.
+function registrarRetencion(datos) {
+  cuentaActual();
+  var conf = leerConfiguracion();
+  var numero = normalizarNumero(datos.numero, conf.formato);
+  var motivo = String(datos.motivo || '').trim();
+  if (!motivo) throw new Error('Falta el motivo de la retención');
+  return conBloqueo(function () {
+    var hoja = libro().getSheetByName('movimientos');
+    var abierto = abiertoOError(hoja, numero);
+    if (!(abierto[COL.fecha_limite] instanceof Date)) {
+      throw new Error('La historia ' + numero + ' no tiene fecha límite: espera el egreso o el fin de la observación');
+    }
+    var ahora = new Date();
+    var limite = limiteManual(datos.fecha, ahora, conf.horario);
+    var anterior = abierto[COL.motivo_retencion];
+    escribir(hoja, abierto.fila, {
+      motivo_retencion: (anterior ? anterior + ' | ' : '') + texto(ahora) + ': ' + motivo,
+      fecha_limite: limite
+    });
+    return 'Retención registrada para la historia ' + numero + '. Nueva fecha límite: ' + texto(limite) + '.';
+  });
+}
+
+// Historias prestadas ahora, por servicio, con las vencidas marcadas.
+// Lee la pestaña completa: con un archivo por año se mantiene en decenas de miles de filas.
+function fueraAhora() {
+  cuentaActual();
+  var ahora = new Date();
+  return prestamosFuera(todasLasFilas().map(function (f) {
+    return {
+      numero: String(f[COL.numero]), servicio: f[COL.servicio], persona: f[COL.persona_autorizada],
+      tipo: f[COL.tipo_actual], salida: f[COL.salida], limite: f[COL.fecha_limite], devolucion: f[COL.devolucion]
+    };
+  }), ahora).map(function (p) {
+    return {
+      numero: p.numero, servicio: p.servicio, persona: p.persona, tipo: p.tipo,
+      salida: texto(p.salida), limite: textoLimite(p.limite), vencida: p.vencida
+    };
+  });
+}
+
+// Todos los préstamos de un número de historia, del más reciente al más antiguo.
+function historial(numeroEscrito) {
+  cuentaActual();
+  var numero = normalizarNumero(numeroEscrito, leerConfiguracion().formato);
+  var fecha = function (v) { return v instanceof Date ? texto(v) : ''; };
+  return todasLasFilas().filter(function (f) { return String(f[COL.numero]) === numero; }).reverse().map(function (f) {
+    return {
+      servicio: f[COL.servicio], persona: f[COL.persona_autorizada],
+      tipo: f[COL.tipo_inicial] === f[COL.tipo_actual] ? f[COL.tipo_actual] : f[COL.tipo_inicial] + ' → ' + f[COL.tipo_actual],
+      salida: fecha(f[COL.salida]), entrega: f[COL.registrado_por], egreso: fecha(f[COL.fin_observacion_o_egreso]),
+      limite: textoLimite(f[COL.fecha_limite]), retencion: f[COL.motivo_retencion],
+      devolucion: fecha(f[COL.devolucion]), recibe: f[COL.recibido_por],
+      integridad: f[COL.integridad] + (f[COL.observacion] ? ': ' + f[COL.observacion] : '')
+    };
+  });
+}
+
+function todasLasFilas() {
+  var hoja = libro().getSheetByName('movimientos');
+  var total = hoja.getLastRow() - 1;
+  return total < 1 ? [] : hoja.getRange(2, 1, total, COLUMNAS.length).getValues();
+}
+
+function abiertoOError(hoja, numero) {
+  var abierto = buscarAbierto(hoja, numero);
+  if (!abierto) throw new Error('La historia ' + numero + ' no figura prestada');
+  return abierto;
+}
+
+// Escribe en una fila las columnas indicadas por nombre.
+function escribir(hoja, fila, valores) {
+  Object.keys(valores).forEach(function (columna) {
+    hoja.getRange(fila, COL[columna] + 1).setValue(valores[columna]);
+  });
+}
+
 // Fila del préstamo sin devolución de ese número (con su número de fila en .fila), o null.
 // Lee dos columnas completas en cada registro. Si la hoja crece a cientos de miles de filas, usar TextFinder.
 function buscarAbierto(hoja, numero) {
@@ -213,7 +321,7 @@ function texto(fecha) {
 }
 
 function textoLimite(limite) {
-  return limite instanceof Date ? texto(limite) : 'en hospitalización';
+  return limite instanceof Date ? texto(limite) : 'sin fecha límite (espera el egreso)';
 }
 
 // Se ejecuta una sola vez desde el editor: crea la hoja con la configuración de ejemplo.
@@ -231,6 +339,7 @@ function prepararHoja() {
     ['Consulta ambulatoria', 'fin_del_dia', ''],
     ['Emergencia', 'horas', '24'],
     ['Hospitalización', 'horas_desde_alta', '48'],
+    ['Observación de emergencia', 'horas_desde_alta', '24'],
     ['Informes médicos y auditoría médica', 'horas', '72'],
     ['Docencia e investigación', 'manual', '']
   ], true);
