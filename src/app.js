@@ -128,9 +128,39 @@ function leerConfiguracion() {
 }
 
 // Filas de una pestaña de configuración como texto, sin encabezado ni filas vacías.
+// Las pestañas se leen juntas y se guardan en caché 60 segundos: leerlas es lo más lento de cada registro.
+// El activador limpiarCache borra la caché cuando se edita la hoja, para que los cambios se apliquen al instante.
+var PESTANAS_CONFIGURACION = ['usuarios', 'plazos', 'horario', 'servicios', 'configuracion'];
+var configuracionLeida = null;
 function filas(nombre) {
-  return libro().getSheetByName(nombre).getDataRange().getDisplayValues().slice(1)
-    .filter(function (f) { return f[0] !== ''; });
+  if (!configuracionLeida) {
+    var cache = CacheService.getScriptCache();
+    var guardada = cache.get('configuracion');
+    if (guardada) {
+      configuracionLeida = JSON.parse(guardada);
+    } else {
+      configuracionLeida = {};
+      PESTANAS_CONFIGURACION.forEach(function (n) {
+        configuracionLeida[n] = libro().getSheetByName(n).getDataRange().getDisplayValues().slice(1)
+          .filter(function (f) { return f[0] !== ''; });
+      });
+      cache.put('configuracion', JSON.stringify(configuracionLeida), 60);
+    }
+  }
+  return configuracionLeida[nombre];
+}
+
+function limpiarCache() {
+  CacheService.getScriptCache().remove('configuracion');
+}
+
+// Crea el activador que borra la caché al editar la hoja. prepararHoja lo llama;
+// en una hoja creada antes, ejecutarlo una vez desde el editor.
+function crearActivador() {
+  var existe = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'limpiarCache'; });
+  if (existe) return;
+  ScriptApp.newTrigger('limpiarCache')
+    .forSpreadsheet(PropertiesService.getScriptProperties().getProperty('ID_HOJA')).onEdit().create();
 }
 
 // El libro se abre una sola vez por ejecución: abrirlo cuesta más que leerlo.
@@ -192,6 +222,7 @@ function prepararHoja() {
   nuevo.deleteSheet(inicial);
 
   propiedades.setProperty('ID_HOJA', nuevo.getId());
+  crearActivador();
   Logger.log('Hoja creada: ' + nuevo.getUrl());
 }
 
