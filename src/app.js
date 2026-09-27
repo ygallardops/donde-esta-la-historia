@@ -175,11 +175,13 @@ function fueraAhora() {
   return prestamosFuera(todasLasFilas().map(function (f) {
     return {
       numero: String(f[COL.numero]), servicio: f[COL.servicio], persona: f[COL.persona_autorizada],
-      tipo: f[COL.tipo_actual], salida: f[COL.salida], limite: f[COL.fecha_limite], devolucion: f[COL.devolucion]
+      tipo: f[COL.tipo_actual], salida: f[COL.salida], limite: f[COL.fecha_limite], devolucion: f[COL.devolucion],
+      egreso: f[COL.fin_observacion_o_egreso]
     };
   }), ahora).map(function (p) {
     return {
-      numero: p.numero, servicio: p.servicio, persona: p.persona, tipo: p.tipo,
+      numero: p.numero, servicio: p.servicio, persona: p.persona,
+      tipo: p.tipo + (p.egreso instanceof Date ? ' (egreso ' + texto(p.egreso) + ')' : ''),
       salida: texto(p.salida), limite: textoLimite(p.limite), vencida: p.vencida
     };
   });
