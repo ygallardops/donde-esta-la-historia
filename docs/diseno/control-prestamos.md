@@ -25,10 +25,6 @@ Registrar cada salida y cada devolución en segundos, saber en todo momento qué
 - Integración con sistemas de historia clínica electrónica.
 - Digitalización de documentos.
 
-## Siguientes versiones
-
-- **Ingreso sin salida registrada:** registrar el ingreso de una historia que vuelve al archivo sin una salida registrada, marcado como tal, para regularizar su estado y medir por semana el cumplimiento del registro de salidas que exige la NTS (numeral 5.3.1, inciso 5), literal b).
-
 ## Principios
 
 1. **Mínimos datos.** Del paciente, solo el número de historia: ni nombre ni diagnóstico. La información de salud es un dato sensible según la Ley N.° 29733, Ley de Protección de Datos Personales.
@@ -79,14 +75,19 @@ La NTS exceptúa del plazo de 24 horas a la historia del paciente que permanece 
 
 Para una historia prestada que tiene fecha límite se registran el motivo y la nueva fecha de devolución, que vence al cierre del archivo ese día y no puede ser anterior a hoy. Desde ese momento, la nueva fecha reemplaza a la fecha límite anterior. Si hay varias retenciones, se conservan todos los motivos con su fecha y hora. El registro no sustituye el reporte escrito que exige la NTS (numeral 5.3.1, inciso 5), literal f).
 
+### Ingreso sin salida registrada
+
+Si se intenta registrar la devolución de una historia que no figura prestada, la página ofrece registrarla como «ingreso sin salida registrada», con su integridad. Queda marcada como tal, para regularizar su estado y medir por semana el cumplimiento del registro de salidas que exige la NTS (numeral 5.3.1, inciso 5), literal b).
+
 ### Consultas
 
 - **Fuera ahora:** historias prestadas, agrupadas por servicio y ordenadas por fecha límite, con las vencidas marcadas y un filtro para ver solo esas.
 - **Historial:** todos los préstamos de un número de historia, del más reciente al más antiguo.
+- **Cumplimiento por semana:** en las últimas 8 semanas (de lunes a domingo), los ingresos al archivo, cuántos llegaron sin salida registrada y el porcentaje con salida registrada.
 
 ### Aviso diario
 
-Todos los días a las 8:00 se envía a un espacio de Google Chat la lista de historias vencidas, agrupadas por servicio. Solo se incluyen números de historia. Si no hay vencidas, no se envía nada.
+Todos los días, entre las 8:00 y las 9:00, se envía a un espacio de Google Chat la lista de historias vencidas, agrupadas por servicio. Apps Script ejecuta los activadores diarios en algún momento de la hora elegida, no a una hora exacta. Solo se incluyen números de historia. Si no hay vencidas, no se envía nada. Los webhooks de Google Chat requieren una cuenta Business o Enterprise de Google Workspace; sin webhook configurado, el aviso queda en el registro de ejecución.
 
 ## Cálculo de la fecha límite
 
@@ -150,7 +151,7 @@ Google Sheets admite hasta 10 millones de celdas por archivo. Con 16 columnas en
 - **Escrituras de una en una** con `LockService`, para que dos personas que registran al mismo tiempo no se pisen.
 - **Reglas en JavaScript puro** (`src/reglas.js`): cálculo de la fecha límite, ajuste al horario, cambio de tipo, estado de una historia y validaciones. No dependen de Google.
 - **Capa delgada de Apps Script** (`src/app.js`): lee y escribe en la hoja, sirve la página y envía el aviso a Chat.
-- **Disparador diario** a las 8:00 para el aviso. La URL del webhook de Chat se guarda en las propiedades del script, nunca en el código.
+- **Disparador diario** entre las 8:00 y las 9:00 para el aviso. La URL del webhook de Chat se guarda en las propiedades del script, nunca en el código.
 
 ## Pruebas
 
@@ -163,7 +164,7 @@ Google Sheets admite hasta 10 millones de celdas por archivo. Con 16 columnas en
 | | Demostración | Institucional |
 | --- | --- | --- |
 | Cuenta | Personal | Institucional de la IPRESS |
-| Datos | Sintéticos, generados por un script | Reales |
+| Datos | Sintéticos, generados por `generarDatosSinteticos`, que solo funciona con la propiedad `DEMO` en «sí» | Reales |
 | Cuándo | Desde la primera versión funcional | Solo después de la aprobación formal de la IPRESS |
 | Cómo | `clasp push` | `clasp push` a mano, desde la cuenta institucional |
 
