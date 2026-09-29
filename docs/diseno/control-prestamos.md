@@ -25,6 +25,10 @@ Registrar cada salida y cada devolución en segundos, saber en todo momento qué
 - Integración con sistemas de historia clínica electrónica.
 - Digitalización de documentos.
 
+## Siguientes versiones
+
+- **Ingreso sin salida registrada:** registrar el ingreso de una historia que vuelve al archivo sin una salida registrada, marcado como tal, para regularizar su estado y medir por semana el cumplimiento del registro de salidas que exige la NTS (numeral 5.3.1, inciso 5), literal b).
+
 ## Principios
 
 1. **Mínimos datos.** Del paciente, solo el número de historia: ni nombre ni diagnóstico. La información de salud es un dato sensible según la Ley N.° 29733, Ley de Protección de Datos Personales.
