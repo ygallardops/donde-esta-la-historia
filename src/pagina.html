@@ -83,6 +83,7 @@
 
 <div id="consultas" hidden>
   <button type="button" onclick="verFuera()">Fuera ahora</button>
+  <button type="button" onclick="verCumplimiento()">Cumplimiento por semana</button>
   <label><input type="checkbox" id="solo-vencidas" style="width:auto"> Solo vencidas</label>
   <form onsubmit="verHistorial(event)">
     <label>Número de historia <input name="numero" required autocomplete="off"></label>
@@ -178,6 +179,20 @@
         }));
       });
     }).fueraAhora();
+  }
+
+  // Por semana: ingresos al archivo, cuántos llegaron sin salida registrada y el porcentaje con salida registrada.
+  function verCumplimiento() {
+    google.script.run.withFailureHandler(error).withSuccessHandler(function (semanas) {
+      var zona = document.getElementById('resultados');
+      zona.replaceChildren();
+      avisar('Últimas ' + semanas.length + ' semanas, de lunes a domingo.', true);
+      tabla(zona, ['Semana del', 'Ingresos', 'Sin salida registrada', 'Con salida registrada'], semanas.map(function (s) {
+        var partes = s.semana.split('-');
+        return { celdas: [partes[2] + '/' + partes[1] + '/' + partes[0], s.ingresos, s.sinSalida,
+          s.ingresos ? Math.round(100 * (s.ingresos - s.sinSalida) / s.ingresos) + ' %' : '—'], clase: '' };
+      }));
+    }).cumplimientoSemanal();
   }
 
   function verHistorial(evento) {
@@ -282,7 +297,7 @@
     var tarea = cola[0];
     google.script.run
       .withSuccessHandler(function (r) { avisar(tarea.alTerminar(r), true); terminar(); })
-      .withFailureHandler(function (e) { anotarError(tarea.datos.numero, e); terminar(); })
+      .withFailureHandler(function (e) { anotarError(tarea, e); terminar(); })
       [tarea.funcion](tarea.datos);
   }
 
@@ -297,10 +312,25 @@
     document.getElementById('pendientes').textContent = cola.length ? 'Por registrar: ' + cola.length + '.' : '';
   }
 
-  function anotarError(numero, e) {
-    var item = document.createElement('li');
-    item.textContent = numero + ': ' + (e.message || String(e));
-    document.getElementById('errores').appendChild(item);
+  // Una devolución de una historia que no figura prestada puede registrarse como ingreso sin salida registrada.
+  function anotarError(tarea, e) {
+    var mensaje = e.message || String(e);
+    var item = agregar(document.getElementById('errores'), 'li', tarea.datos.numero + ': ' + mensaje + ' ');
+    if (tarea.funcion === 'registrarDevolucion' && /no figura prestada/.test(mensaje)) {
+      var boton = agregar(item, 'button', 'Registrar como ingreso sin salida registrada');
+      boton.type = 'button';
+      boton.onclick = function () {
+        boton.disabled = true;
+        google.script.run.withSuccessHandler(function (texto) {
+          avisar(texto, true);
+          item.remove();
+          if (!document.getElementById('errores').children.length) limpiarErrores();
+        }).withFailureHandler(function (e2) {
+          boton.disabled = false;
+          error(e2);
+        }).registrarIngresoSinSalida(tarea.datos);
+      };
+    }
     document.getElementById('zona-errores').hidden = false;
   }
 
