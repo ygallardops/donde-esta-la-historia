@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir, siNo, diaLocal, salidasDelCargo,
-  fechaHoraDeTexto, limiteManual, validarCambioDeTipo, limiteTrasEgreso, prestamosFuera } = require('../src/reglas.js');
+  fechaHoraDeTexto, limiteManual, validarCambioDeTipo, limiteTrasEgreso, prestamosFuera,
+  inicioDeSemana, cumplimientoPorSemana, mensajeVencidas } = require('../src/reglas.js');
 
 // Horario de ejemplo: lunes a viernes de 7:00 a 19:00 y sábados de 7:00 a 13:00.
 const LV = ['07:00', '19:00'];
@@ -138,3 +139,37 @@ test('fuera ahora: sin devueltas, vencidas marcadas, por servicio y fecha límit
 
 test('egreso en el mismo minuto de la salida', () =>
   assert.doesNotThrow(() => limiteTrasEgreso(HOSP, lima('2026-09-28T10:00:35'), lima('2026-09-28T10:00'), lima('2026-09-28T12:00'), HORARIO)));
+
+test('semana: empieza el lunes, en hora del Perú', () => {
+  assert.strictEqual(inicioDeSemana(lima('2026-09-28T00:30')), '2026-09-28');
+  assert.strictEqual(inicioDeSemana(lima('2026-10-04T23:30')), '2026-09-28');
+  assert.strictEqual(inicioDeSemana(lima('2026-09-27T23:59')), '2026-09-21');
+});
+
+test('cumplimiento: ingresos y sin salida por semana, la más reciente primero', () => {
+  const r = cumplimientoPorSemana([
+    { fecha: lima('2026-09-29T10:00'), sinSalida: false },
+    { fecha: lima('2026-09-30T10:00'), sinSalida: true },
+    { fecha: lima('2026-09-22T10:00'), sinSalida: true },
+    { fecha: lima('2026-08-01T10:00'), sinSalida: true },
+    { fecha: '', sinSalida: false }
+  ], lima('2026-10-01T12:00'), 3);
+  assert.deepStrictEqual(r, [
+    { semana: '2026-09-28', ingresos: 2, sinSalida: 1 },
+    { semana: '2026-09-21', ingresos: 1, sinSalida: 1 },
+    { semana: '2026-09-14', ingresos: 0, sinSalida: 0 }
+  ]);
+});
+
+test('aviso: solo vencidas, por servicio y sin otros datos', () => {
+  const fuera = [
+    { numero: '11', servicio: 'Emergencia', persona: 'Ana Soto', vencida: true },
+    { numero: '12', servicio: 'Consulta externa', persona: 'Luis Díaz', vencida: false },
+    { numero: '13', servicio: 'Emergencia', persona: 'Ana Soto', vencida: true },
+    { numero: '14', servicio: 'Hospitalización', persona: 'Rosa Paz', vencida: true }
+  ];
+  const texto = mensajeVencidas(fuera, '29/09/2026 08:05');
+  assert.strictEqual(texto, 'Historias clínicas vencidas al 29/09/2026 08:05 (3):\n- Emergencia (2): 11, 13\n- Hospitalización (1): 14');
+  assert.ok(!/Ana|Luis|Rosa/.test(texto));
+});
+test('aviso: sin vencidas no hay mensaje', () => assert.strictEqual(mensajeVencidas([{ numero: '1', servicio: 'X', vencida: false }], 'hoy'), null));

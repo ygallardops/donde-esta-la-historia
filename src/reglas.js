@@ -182,6 +182,43 @@ function salidasDelCargo(salidas, dia, servicio, persona) {
   });
 }
 
+// Lunes 'AAAA-MM-DD' (hora del Perú) de la semana que contiene la fecha.
+function inicioDeSemana(fecha) {
+  var local = new Date(fecha.getTime() + DESFASE_MS);
+  var desdeLunes = (local.getUTCDay() + 6) % 7;
+  return new Date(local.getTime() - desdeLunes * DIA_MS).toISOString().slice(0, 10);
+}
+
+// Ingresos al archivo por semana (lunes a domingo) y cuántos llegaron sin salida registrada.
+// ingresos: [{ fecha: Date, sinSalida: true | false }]. Devuelve las últimas semanas, de la más reciente a la más antigua.
+function cumplimientoPorSemana(ingresos, ahora, semanas) {
+  var resultado = [];
+  for (var i = 0; i < semanas; i++) {
+    resultado.push({ semana: inicioDeSemana(new Date(ahora.getTime() - i * 7 * DIA_MS)), ingresos: 0, sinSalida: 0 });
+  }
+  ingresos.forEach(function (r) {
+    if (!(r.fecha instanceof Date)) return;
+    var semana = inicioDeSemana(r.fecha);
+    var fila = resultado.filter(function (s) { return s.semana === semana; })[0];
+    if (!fila) return;
+    fila.ingresos++;
+    if (r.sinSalida) fila.sinSalida++;
+  });
+  return resultado;
+}
+
+// Texto del aviso diario: solo números de historia vencidos, por servicio. null si no hay vencidas.
+function mensajeVencidas(fuera, momento) {
+  var vencidas = fuera.filter(function (p) { return p.vencida; });
+  if (!vencidas.length) return null;
+  var servicios = vencidas.map(function (p) { return p.servicio; })
+    .filter(function (s, i, todos) { return todos.indexOf(s) === i; });
+  return 'Historias clínicas vencidas al ' + momento + ' (' + vencidas.length + '):\n' + servicios.map(function (s) {
+    var numeros = vencidas.filter(function (p) { return p.servicio === s; }).map(function (p) { return p.numero; });
+    return '- ' + s + ' (' + numeros.length + '): ' + numeros.join(', ');
+  }).join('\n');
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     fechaLimite: fechaLimite,
@@ -196,6 +233,9 @@ if (typeof module !== 'undefined') {
     limiteManual: limiteManual,
     validarCambioDeTipo: validarCambioDeTipo,
     limiteTrasEgreso: limiteTrasEgreso,
-    prestamosFuera: prestamosFuera
+    prestamosFuera: prestamosFuera,
+    inicioDeSemana: inicioDeSemana,
+    cumplimientoPorSemana: cumplimientoPorSemana,
+    mensajeVencidas: mensajeVencidas
   };
 }
