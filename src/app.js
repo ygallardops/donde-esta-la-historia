@@ -8,6 +8,7 @@ var COL = {};
 COLUMNAS.forEach(function (c, i) { COL[c] = i; });
 var DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 var INTEGRIDAD = ['conforme', 'con observaciones'];
+var SIN_SALIDA = 'Ingreso sin salida registrada';
 
 function doGet() {
   try {
@@ -68,9 +69,7 @@ function registrarSalida(datos) {
 function registrarDevolucion(datos) {
   var correo = cuentaActual();
   var numero = normalizarNumero(datos.numero, leerConfiguracion().formato);
-  if (INTEGRIDAD.indexOf(datos.integridad) === -1) throw new Error('Integridad no válida');
-  var observacion = String(datos.observacion || '').trim();
-  if (datos.integridad === 'con observaciones' && !observacion) throw new Error('Falta la observación');
+  var observacion = observacionDeIntegridad(datos);
 
   return conBloqueo(function () {
     var hoja = libro().getSheetByName('movimientos');
@@ -97,7 +96,8 @@ function cargoDeHoy(servicio, persona) {
   var hoy = diaLocal(new Date());
   var salidas = hoja.getRange(2, COL.salida + 1, total, 1).getValues();
   var desde = total;
-  while (desde > 0 && salidas[desde - 1][0] instanceof Date && diaLocal(salidas[desde - 1][0]) === hoy) desde--;
+  // Los ingresos sin salida no tienen fecha de salida: se saltan sin cortar la búsqueda.
+  while (desde > 0 && (!(salidas[desde - 1][0] instanceof Date) || diaLocal(salidas[desde - 1][0]) === hoy)) desde--;
   if (desde === total) return [];
   var deHoy = hoja.getRange(desde + 2, 1, total - desde, COLUMNAS.length).getValues().map(function (f) {
     return {
@@ -111,6 +111,64 @@ function cargoDeHoy(servicio, persona) {
       salida: texto(s.salida), limite: textoLimite(s.limite)
     };
   });
+}
+
+// Historia que vuelve al archivo sin una salida registrada: queda como un ingreso marcado, para medir el cumplimiento.
+function registrarIngresoSinSalida(datos) {
+  var correo = cuentaActual();
+  var numero = normalizarNumero(datos.numero, leerConfiguracion().formato);
+  var observacion = observacionDeIntegridad(datos);
+  return conBloqueo(function () {
+    var hoja = libro().getSheetByName('movimientos');
+    if (buscarAbierto(hoja, numero)) throw new Error('La historia ' + numero + ' figura prestada: registre su devolución');
+    var fila = COLUMNAS.map(function () { return ''; });
+    fila[COL.id] = Utilities.getUuid();
+    fila[COL.numero] = numero;
+    fila[COL.tipo_inicial] = SIN_SALIDA;
+    fila[COL.tipo_actual] = SIN_SALIDA;
+    fila[COL.devolucion] = new Date();
+    fila[COL.recibido_por] = correo;
+    fila[COL.integridad] = datos.integridad;
+    fila[COL.observacion] = observacion;
+    hoja.appendRow(fila);
+    return 'Ingreso sin salida registrada: ' + numero + '.';
+  });
+}
+
+function observacionDeIntegridad(datos) {
+  if (INTEGRIDAD.indexOf(datos.integridad) === -1) throw new Error('Integridad no válida');
+  var observacion = String(datos.observacion || '').trim();
+  if (datos.integridad === 'con observaciones' && !observacion) throw new Error('Falta la observación');
+  return observacion;
+}
+
+// Ingresos por semana y cuántos llegaron sin salida registrada, en las últimas 8 semanas.
+function cumplimientoSemanal() {
+  cuentaActual();
+  return cumplimientoPorSemana(todasLasFilas().map(function (f) {
+    return { fecha: f[COL.devolucion], sinSalida: f[COL.tipo_actual] === SIN_SALIDA };
+  }), new Date(), 8);
+}
+
+// Aviso diario de vencidas. Con la propiedad WEBHOOK_CHAT lo envía a un espacio de Google Chat
+// (requiere Google Workspace); sin ella, lo deja en el registro de ejecución.
+function avisoDiario() {
+  var mensaje = mensajeVencidas(fueraDeLaHoja(new Date()), texto(new Date()));
+  if (!mensaje) return;
+  var webhook = PropertiesService.getScriptProperties().getProperty('WEBHOOK_CHAT');
+  if (!webhook) {
+    console.log(mensaje);
+    return;
+  }
+  UrlFetchApp.fetch(webhook, {
+    method: 'post', contentType: 'application/json; charset=UTF-8', payload: JSON.stringify({ text: mensaje })
+  });
+}
+
+// Activador diario del aviso: Apps Script lo ejecuta en algún momento entre las 8:00 y las 9:00.
+function crearActivadorAviso() {
+  var existe = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'avisoDiario'; });
+  if (!existe) ScriptApp.newTrigger('avisoDiario').timeBased().everyDays(1).atHour(8).create();
 }
 
 // Cambia el tipo de un préstamo abierto a uno que espera el egreso o el fin de la observación.
@@ -171,20 +229,23 @@ function registrarRetencion(datos) {
 // Lee la pestaña completa: con un archivo por año se mantiene en decenas de miles de filas.
 function fueraAhora() {
   cuentaActual();
-  var ahora = new Date();
-  return prestamosFuera(todasLasFilas().map(function (f) {
-    return {
-      numero: String(f[COL.numero]), servicio: f[COL.servicio], persona: f[COL.persona_autorizada],
-      tipo: f[COL.tipo_actual], salida: f[COL.salida], limite: f[COL.fecha_limite], devolucion: f[COL.devolucion],
-      egreso: f[COL.fin_observacion_o_egreso]
-    };
-  }), ahora).map(function (p) {
+  return fueraDeLaHoja(new Date()).map(function (p) {
     return {
       numero: p.numero, servicio: p.servicio, persona: p.persona,
       tipo: p.tipo + (p.egreso instanceof Date ? ' (egreso ' + texto(p.egreso) + ')' : ''),
       salida: texto(p.salida), limite: textoLimite(p.limite), vencida: p.vencida
     };
   });
+}
+
+function fueraDeLaHoja(ahora) {
+  return prestamosFuera(todasLasFilas().map(function (f) {
+    return {
+      numero: String(f[COL.numero]), servicio: f[COL.servicio], persona: f[COL.persona_autorizada],
+      tipo: f[COL.tipo_actual], salida: f[COL.salida], limite: f[COL.fecha_limite], devolucion: f[COL.devolucion],
+      egreso: f[COL.fin_observacion_o_egreso]
+    };
+  }), ahora);
 }
 
 // Todos los préstamos de un número de historia, del más reciente al más antiguo.
@@ -364,6 +425,7 @@ function prepararHoja() {
 
   propiedades.setProperty('ID_HOJA', nuevo.getId());
   crearActivador();
+  crearActivadorAviso();
   Logger.log('Hoja creada: ' + nuevo.getUrl());
 }
 
