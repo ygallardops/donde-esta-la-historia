@@ -207,14 +207,17 @@ function cumplimientoPorSemana(ingresos, ahora, semanas) {
   return resultado;
 }
 
-// Texto del aviso diario: solo números de historia vencidos, por servicio. null si no hay vencidas.
-function mensajeVencidas(fuera, momento) {
+// Texto del aviso diario: solo números de historia vencidos, con su atraso, por servicio. null si no hay vencidas.
+// Conserva el orden de "fuera" (prestamosFuera lo da por fecha límite: primero las de más atraso).
+function mensajeVencidas(fuera, ahora, momento) {
   var vencidas = fuera.filter(function (p) { return p.vencida; });
   if (!vencidas.length) return null;
   var servicios = vencidas.map(function (p) { return p.servicio; })
     .filter(function (s, i, todos) { return todos.indexOf(s) === i; });
   return 'Historias clínicas vencidas al ' + momento + ' (' + vencidas.length + '):\n' + servicios.map(function (s) {
-    var numeros = vencidas.filter(function (p) { return p.servicio === s; }).map(function (p) { return p.numero; });
+    var numeros = vencidas.filter(function (p) { return p.servicio === s; }).map(function (p) {
+      return p.numero + ' (' + duracion(ahora.getTime() - p.limite.getTime()) + ')';
+    });
     return '- ' + s + ' (' + numeros.length + '): ' + numeros.join(', ');
   }).join('\n');
 }
@@ -223,11 +226,13 @@ function mensajeVencidas(fuera, momento) {
 function tiempoRestante(limite, ahora) {
   if (!(limite instanceof Date)) return '—';
   var diferencia = limite.getTime() - ahora.getTime();
-  var lapso = Math.abs(diferencia);
-  var texto = lapso < HORA_MS ? 'menos de 1 h'
+  return (diferencia >= 0 ? 'vence en ' : 'vencida hace ') + duracion(Math.abs(diferencia));
+}
+
+function duracion(lapso) {
+  return lapso < HORA_MS ? 'menos de 1 h'
     : lapso < DIA_MS ? Math.floor(lapso / HORA_MS) + ' h'
     : Math.floor(lapso / DIA_MS) + (lapso < 2 * DIA_MS ? ' día' : ' días');
-  return (diferencia >= 0 ? 'vence en ' : 'vencida hace ') + texto;
 }
 
 if (typeof module !== 'undefined') {

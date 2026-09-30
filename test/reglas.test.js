@@ -161,18 +161,21 @@ test('cumplimiento: ingresos y sin salida por semana, la más reciente primero',
   ]);
 });
 
-test('aviso: solo vencidas, por servicio y sin otros datos', () => {
+test('aviso: solo vencidas con su atraso, por servicio y sin otros datos', () => {
+  const ahora = lima('2026-09-29T08:05');
   const fuera = [
-    { numero: '11', servicio: 'Emergencia', persona: 'Ana Soto', vencida: true },
-    { numero: '12', servicio: 'Consulta externa', persona: 'Luis Díaz', vencida: false },
-    { numero: '13', servicio: 'Emergencia', persona: 'Ana Soto', vencida: true },
-    { numero: '14', servicio: 'Hospitalización', persona: 'Rosa Paz', vencida: true }
+    { numero: '11', servicio: 'Emergencia', persona: 'Ana Soto', limite: lima('2026-09-26T08:00'), vencida: true },
+    { numero: '12', servicio: 'Consulta externa', persona: 'Luis Díaz', limite: lima('2026-09-29T19:00'), vencida: false },
+    { numero: '13', servicio: 'Emergencia', persona: 'Ana Soto', limite: lima('2026-09-29T03:00'), vencida: true },
+    { numero: '14', servicio: 'Hospitalización', persona: 'Rosa Paz', limite: lima('2026-09-28T07:00'), vencida: true }
   ];
-  const texto = mensajeVencidas(fuera, '29/09/2026 08:05');
-  assert.strictEqual(texto, 'Historias clínicas vencidas al 29/09/2026 08:05 (3):\n- Emergencia (2): 11, 13\n- Hospitalización (1): 14');
+  const texto = mensajeVencidas(fuera, ahora, '29/09/2026 08:05');
+  assert.strictEqual(texto, 'Historias clínicas vencidas al 29/09/2026 08:05 (3):\n' +
+    '- Emergencia (2): 11 (3 días), 13 (5 h)\n- Hospitalización (1): 14 (1 día)');
   assert.ok(!/Ana|Luis|Rosa/.test(texto));
 });
-test('aviso: sin vencidas no hay mensaje', () => assert.strictEqual(mensajeVencidas([{ numero: '1', servicio: 'X', vencida: false }], 'hoy'), null));
+test('aviso: sin vencidas no hay mensaje', () =>
+  assert.strictEqual(mensajeVencidas([{ numero: '1', servicio: 'X', limite: lima('2026-09-30T08:00'), vencida: false }], lima('2026-09-29T08:00'), 'hoy'), null));
 
 test('tiempo restante: antes de vencer', () => {
   const ahora = lima('2026-09-28T10:00');

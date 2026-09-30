@@ -153,7 +153,8 @@ function cumplimientoSemanal() {
 // Aviso diario de vencidas. Con la propiedad WEBHOOK_CHAT lo envía a un espacio de Google Chat
 // (requiere Google Workspace); sin ella, lo deja en el registro de ejecución.
 function avisoDiario() {
-  var mensaje = mensajeVencidas(fueraDeLaHoja(new Date()), texto(new Date()));
+  var ahora = new Date();
+  var mensaje = mensajeVencidas(fueraDeLaHoja(ahora), ahora, texto(ahora));
   if (!mensaje) return;
   var webhook = PropertiesService.getScriptProperties().getProperty('WEBHOOK_CHAT');
   if (!webhook) {

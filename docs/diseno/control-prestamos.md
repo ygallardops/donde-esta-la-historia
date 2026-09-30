@@ -87,7 +87,7 @@ Si se intenta registrar la devolución de una historia que no figura prestada, l
 
 ### Aviso diario
 
-Todos los días, entre las 8:00 y las 9:00, se envía a un espacio de Google Chat la lista de historias vencidas, agrupadas por servicio. Apps Script ejecuta los activadores diarios en algún momento de la hora elegida, no a una hora exacta. Solo se incluyen números de historia. Si no hay vencidas, no se envía nada. Los webhooks de Google Chat requieren una cuenta Business o Enterprise de Google Workspace; sin webhook configurado, el aviso queda en el registro de ejecución.
+Todos los días, entre las 8:00 y las 9:00, se envía a un espacio de Google Chat la lista de historias vencidas, agrupadas por servicio. Apps Script ejecuta los activadores diarios en algún momento de la hora elegida, no a una hora exacta. Solo se incluyen números de historia, cada uno con su atraso en tiempo corrido (por ejemplo, «123 (3 días)»), primero los de más atraso. Si no hay vencidas, no se envía nada. Los webhooks de Google Chat requieren una cuenta Business o Enterprise de Google Workspace; sin webhook configurado, el aviso queda en el registro de ejecución.
 
 ## Cálculo de la fecha límite
 
