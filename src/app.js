@@ -229,11 +229,12 @@ function registrarRetencion(datos) {
 // Lee la pestaña completa: con un archivo por año se mantiene en decenas de miles de filas.
 function fueraAhora() {
   cuentaActual();
-  return fueraDeLaHoja(new Date()).map(function (p) {
+  var ahora = new Date();
+  return fueraDeLaHoja(ahora).map(function (p) {
     return {
       numero: p.numero, servicio: p.servicio, persona: p.persona,
       tipo: p.tipo + (p.egreso instanceof Date ? ' (egreso ' + texto(p.egreso) + ')' : ''),
-      salida: texto(p.salida), limite: textoLimite(p.limite), vencida: p.vencida
+      salida: texto(p.salida), limite: textoLimite(p.limite), estado: tiempoRestante(p.limite, ahora), vencida: p.vencida
     };
   });
 }

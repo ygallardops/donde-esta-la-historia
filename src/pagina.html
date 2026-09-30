@@ -309,8 +309,8 @@
         var delServicio = lista.filter(function (p) { return p.servicio === servicio; });
         agregar(zona, 'h3', servicio + ' (' + delServicio.length + ')');
         // Mismos anchos de columna en todos los servicios, para que las tablas se alineen.
-        tabla(zona, ['Número', 'Persona', 'Tipo', 'Salida', 'Fecha límite'], delServicio.map(function (p) {
-          return { celdas: [p.numero, p.persona, p.tipo, p.salida, p.limite + (p.vencida ? ' (vencida)' : '')],
+        tabla(zona, ['Número', 'Persona', 'Tipo', 'Salida', 'Fecha límite', 'Estado'], delServicio.map(function (p) {
+          return { celdas: [p.numero, p.persona, p.tipo, p.salida, p.limite, p.estado],
             clase: p.vencida ? 'vencida' : '' };
         })).className = 'fija';
       });
