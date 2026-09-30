@@ -342,7 +342,7 @@ function leerConfiguracion() {
   };
 }
 
-// Filas de una pestaña de configuración como texto, sin encabezado ni filas vacías.
+// Filas de una pestaña de configuración como texto, sin espacios en los extremos, sin encabezado ni filas vacías.
 // Las pestañas se leen juntas y se guardan en caché 10 minutos: leerlas es lo más lento de cada registro.
 // El activador limpiarCache borra la caché cuando se edita la hoja, para que los cambios se apliquen al instante.
 var PESTANAS_CONFIGURACION = ['usuarios', 'plazos', 'horario', 'servicios', 'configuracion'];
@@ -357,6 +357,7 @@ function filas(nombre) {
       configuracionLeida = {};
       PESTANAS_CONFIGURACION.forEach(function (n) {
         configuracionLeida[n] = libro().getSheetByName(n).getDataRange().getDisplayValues().slice(1)
+          .map(function (f) { return f.map(function (celda) { return celda.trim(); }); })
           .filter(function (f) { return f[0] !== ''; });
       });
       cache.put('configuracion', JSON.stringify(configuracionLeida), 600);

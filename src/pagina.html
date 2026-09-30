@@ -264,6 +264,7 @@
     var f = document.getElementById('salida');
     conf.servicios.forEach(function (s) { f.servicio.add(new Option(s)); });
     var destino = document.getElementById('seguimiento').tipo;
+    f.tipo.add(new Option('Elija el motivo', ''));
     conf.tipos.forEach(function (t) {
       formas[t.nombre] = t.forma;
       plazos[t.nombre] = t.plazo;
@@ -419,9 +420,10 @@
   }
 
   // Al elegir el servicio se propone su motivo habitual; se puede cambiar.
+  // Si el servicio no tiene motivo configurado, se pide elegirlo: nunca se arrastra el del servicio anterior.
   function servicioCambiado() {
     var f = document.getElementById('salida');
-    if (motivos[f.servicio.value]) f.tipo.value = motivos[f.servicio.value];
+    f.tipo.value = motivos[f.servicio.value] || '';
     tipoCambiado();
   }
 
