@@ -274,7 +274,7 @@
   function actualizarResumen() {
     document.getElementById('resumen-hora').textContent = 'Consultando…';
     google.script.run.withFailureHandler(function (e) {
-      document.getElementById('resumen-hora').textContent = 'No se pudo actualizar: ' + (e.message || String(e));
+      document.getElementById('resumen-hora').textContent = 'No se pudo actualizar: ' + textoError(e);
     }).withSuccessHandler(function (r) {
       document.getElementById('cifra-fuera').textContent = r.fuera;
       document.getElementById('texto-fuera').textContent = 'fuera';
@@ -301,6 +301,7 @@
     document.getElementById('zona-cargo').hidden = cual !== 'salida';
     document.getElementById('zona-resumen').hidden = cual !== 'salida';
     document.getElementById('resultados').replaceChildren();
+    avisar('', true);
     var numero = document.getElementById(cual).querySelector('[name=numero]');
     numero.focus();
   }
@@ -508,7 +509,8 @@
 
   // Una devolución de una historia que no figura prestada puede registrarse como ingreso sin salida registrada.
   function anotarError(tarea, e) {
-    var mensaje = e.message || String(e);
+    var mensaje = textoError(e);
+    avisar(tarea.datos.numero + ': ' + mensaje, false);
     var item = agregar(document.getElementById('errores'), 'li', tarea.datos.numero + ': ' + mensaje + ' ');
     if (tarea.funcion === 'registrarDevolucion' && /no figura prestada/.test(mensaje)) {
       var boton = agregar(item, 'button', 'Registrar como ingreso sin salida registrada');
@@ -597,7 +599,12 @@
   }
 
   function error(e) {
-    avisar(e.message || String(e), false);
+    avisar(textoError(e), false);
+  }
+
+  // Apps Script antepone «Error: » al mensaje de las excepciones del servidor.
+  function textoError(e) {
+    return String((e && e.message) || e).replace(/^Error:\s*/, '');
   }
 </script>
 </body>
