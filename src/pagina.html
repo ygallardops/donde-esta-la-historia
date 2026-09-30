@@ -60,6 +60,10 @@
   .botones { display: flex; flex-wrap: wrap; gap: 8px; }
   button:disabled { opacity: .6; cursor: default; }
 
+  .cifras { display: flex; gap: 16px; margin-bottom: 8px; }
+  .cifras div { flex: 1; }
+  .cifras strong { display: block; font-size: 28px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .cifras .alerta strong { color: var(--error); }
   #pendientes { margin: 0; font-weight: 600; color: var(--primario); }
   #recientes, #errores { list-style: none; margin: 0; padding: 0; font-size: 14px; }
   #recientes li, #errores li { padding: 6px 0; border-top: 1px solid var(--borde); }
@@ -187,6 +191,19 @@
   </main>
 
   <aside class="lateral">
+    <section class="tarjeta" id="zona-resumen">
+      <h2>Resumen</h2>
+      <div class="cifras">
+        <div><strong id="cifra-fuera">—</strong><span id="texto-fuera">fuera</span></div>
+        <div class="alerta"><strong id="cifra-vencidas">—</strong><span id="texto-vencidas">vencidas</span></div>
+      </div>
+      <p class="vacio" id="resumen-hora">Consultando…</p>
+      <div class="botones" style="margin-top: 8px">
+        <button type="button" onclick="actualizarResumen()">Actualizar</button>
+        <button type="button" onclick="verVencidas()">Ver vencidas</button>
+      </div>
+    </section>
+
     <section class="tarjeta" id="zona-cargo">
       <h2>Cargo</h2>
       <p id="cargo-resumen" class="vacio">Sin historias.</p>
@@ -250,6 +267,27 @@
     });
     tipoCambiado();
     f.numero.focus();
+    actualizarResumen();
+  }
+
+  // Cuántas historias están fuera y cuántas vencidas. Se actualiza al abrir, con el botón y al terminar cada tanda.
+  function actualizarResumen() {
+    document.getElementById('resumen-hora').textContent = 'Consultando…';
+    google.script.run.withFailureHandler(function (e) {
+      document.getElementById('resumen-hora').textContent = 'No se pudo actualizar: ' + (e.message || String(e));
+    }).withSuccessHandler(function (r) {
+      document.getElementById('cifra-fuera').textContent = r.fuera;
+      document.getElementById('texto-fuera').textContent = 'fuera';
+      document.getElementById('cifra-vencidas').textContent = r.vencidas;
+      document.getElementById('texto-vencidas').textContent = r.vencidas === 1 ? 'vencida' : 'vencidas';
+      document.getElementById('resumen-hora').textContent = 'Actualizado a las ' + r.hora + '.';
+    }).resumenFuera();
+  }
+
+  function verVencidas() {
+    mostrar('consultas');
+    document.getElementById('solo-vencidas').checked = true;
+    verFuera();
   }
 
   function mostrar(cual) {
@@ -261,6 +299,7 @@
     });
     document.body.setAttribute('data-pestana', cual);
     document.getElementById('zona-cargo').hidden = cual !== 'salida';
+    document.getElementById('zona-resumen').hidden = cual !== 'salida';
     document.getElementById('resultados').replaceChildren();
     var numero = document.getElementById(cual).querySelector('[name=numero]');
     numero.focus();
@@ -448,6 +487,7 @@
     cola.shift();
     enviando = false;
     mostrarPendientes();
+    if (!cola.length) actualizarResumen();
     enviarSiguiente();
   }
 
