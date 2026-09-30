@@ -219,6 +219,17 @@ function mensajeVencidas(fuera, momento) {
   }).join('\n');
 }
 
+// Tiempo corrido hasta la fecha límite o desde que venció: menos de 1 h, horas hasta 24 h y luego días completos.
+function tiempoRestante(limite, ahora) {
+  if (!(limite instanceof Date)) return '—';
+  var diferencia = limite.getTime() - ahora.getTime();
+  var lapso = Math.abs(diferencia);
+  var texto = lapso < HORA_MS ? 'menos de 1 h'
+    : lapso < DIA_MS ? Math.floor(lapso / HORA_MS) + ' h'
+    : Math.floor(lapso / DIA_MS) + (lapso < 2 * DIA_MS ? ' día' : ' días');
+  return (diferencia >= 0 ? 'vence en ' : 'vencida hace ') + texto;
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     fechaLimite: fechaLimite,
@@ -236,6 +247,7 @@ if (typeof module !== 'undefined') {
     prestamosFuera: prestamosFuera,
     inicioDeSemana: inicioDeSemana,
     cumplimientoPorSemana: cumplimientoPorSemana,
-    mensajeVencidas: mensajeVencidas
+    mensajeVencidas: mensajeVencidas,
+    tiempoRestante: tiempoRestante
   };
 }

@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir, siNo, diaLocal, salidasDelCargo,
   fechaHoraDeTexto, limiteManual, validarCambioDeTipo, limiteTrasEgreso, prestamosFuera,
-  inicioDeSemana, cumplimientoPorSemana, mensajeVencidas } = require('../src/reglas.js');
+  inicioDeSemana, cumplimientoPorSemana, mensajeVencidas, tiempoRestante } = require('../src/reglas.js');
 
 // Horario de ejemplo: lunes a viernes de 7:00 a 19:00 y sábados de 7:00 a 13:00.
 const LV = ['07:00', '19:00'];
@@ -173,3 +173,20 @@ test('aviso: solo vencidas, por servicio y sin otros datos', () => {
   assert.ok(!/Ana|Luis|Rosa/.test(texto));
 });
 test('aviso: sin vencidas no hay mensaje', () => assert.strictEqual(mensajeVencidas([{ numero: '1', servicio: 'X', vencida: false }], 'hoy'), null));
+
+test('tiempo restante: antes de vencer', () => {
+  const ahora = lima('2026-09-28T10:00');
+  assert.strictEqual(tiempoRestante(lima('2026-09-28T10:40'), ahora), 'vence en menos de 1 h');
+  assert.strictEqual(tiempoRestante(lima('2026-09-28T10:00'), ahora), 'vence en menos de 1 h');
+  assert.strictEqual(tiempoRestante(lima('2026-09-28T15:59'), ahora), 'vence en 5 h');
+  assert.strictEqual(tiempoRestante(lima('2026-09-29T09:59'), ahora), 'vence en 23 h');
+  assert.strictEqual(tiempoRestante(lima('2026-09-29T10:00'), ahora), 'vence en 1 día');
+  assert.strictEqual(tiempoRestante(lima('2026-10-01T09:00'), ahora), 'vence en 2 días');
+});
+test('tiempo restante: vencida', () => {
+  const ahora = lima('2026-09-28T10:00');
+  assert.strictEqual(tiempoRestante(lima('2026-09-28T09:59'), ahora), 'vencida hace menos de 1 h');
+  assert.strictEqual(tiempoRestante(lima('2026-09-28T07:00'), ahora), 'vencida hace 3 h');
+  assert.strictEqual(tiempoRestante(lima('2026-09-25T09:00'), ahora), 'vencida hace 3 días');
+});
+test('tiempo restante: sin fecha límite', () => assert.strictEqual(tiempoRestante('', lima('2026-09-28T10:00')), '—'));
