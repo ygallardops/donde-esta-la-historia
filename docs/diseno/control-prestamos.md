@@ -40,7 +40,7 @@ La IPRESS mantiene en la hoja la lista de cuentas autorizadas para registrar sal
 
 ### Registrar una salida
 
-Campos: número de historia, servicio (lista), nombre y apellido completos de la persona autorizada que la solicita (texto, obligatorio) y tipo de préstamo (lista).
+Campos: número de historia, servicio que solicita (lista), nombre y apellido completos de la persona autorizada que la solicita (texto, obligatorio) y tipo de préstamo (lista), que la página muestra como «motivo del préstamo». Al elegir el servicio se propone su motivo habitual, que puede cambiarse, y debajo se muestra el plazo que implica.
 
 - La fecha y hora de salida y la cuenta que registra se toman automáticamente.
 - La fecha límite se calcula según la tabla de plazos y el horario del archivo.
@@ -136,7 +136,7 @@ Un archivo de Google Sheets por año, con estas pestañas:
 | --- | --- |
 | `movimientos` | Una fila por préstamo: id, número de historia, servicio, persona autorizada, tipo inicial, tipo actual, salida, registrado por, cambio de tipo, fin de observación o egreso, fecha límite, motivo de retención, devolución, recibido por, integridad, observación |
 | `plazos` | Tipo de préstamo, forma de vencimiento y horas |
-| `servicios` | Lista de servicios y consultorios |
+| `servicios` | Servicios y consultorios, cada uno con su motivo habitual |
 | `horario` | Horario de apertura por día de la semana y feriados |
 | `usuarios` | Cuentas autorizadas para registrar |
 | `configuracion` | Formato del número de historia y si se quitan los ceros a la izquierda |

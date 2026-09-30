@@ -46,6 +46,7 @@
   input:focus-visible, select:focus-visible, button:focus-visible, [role=tab]:focus-visible { outline: 3px solid #80b3ea; outline-offset: 1px; }
   fieldset { border: 0; padding: 0; margin: 0 0 16px; }
   legend { font-weight: 600; margin-bottom: 8px; }
+  .ayuda { font-size: 14px; color: var(--suave); margin: 8px 0 0; }
   .campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
 
   .entrada-numero { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
@@ -125,12 +126,13 @@
       <fieldset>
         <legend>Cargo en curso</legend>
         <div class="campos">
-          <label>Servicio <select name="servicio" required></select></label>
+          <label>Servicio que solicita <select name="servicio" required onchange="servicioCambiado()"></select></label>
           <label>Persona autorizada que recibe (nombre y apellido completos)
             <input name="persona" required autocomplete="off"></label>
-          <label>Tipo de préstamo <select name="tipo" required onchange="tipoCambiado()"></select></label>
+          <label>Motivo del préstamo <select name="tipo" required onchange="tipoCambiado()"></select></label>
           <label id="campo-fecha" hidden>Fecha de devolución <input name="fechaManual" type="date"></label>
         </div>
+        <p class="ayuda" id="plazo-motivo"></p>
       </fieldset>
       <div class="entrada-numero">
         <label>Número de historia <input name="numero" required autocomplete="off" inputmode="text"></label>
@@ -159,11 +161,11 @@
         <div class="campos">
           <label>Acción
             <select name="accion" onchange="accionCambiada()">
-              <option value="cambiarTipo">Cambio de tipo</option>
+              <option value="cambiarTipo">Cambio de motivo</option>
               <option value="registrarEgreso">Egreso o fin de la observación</option>
               <option value="registrarRetencion">Retención justificada</option>
             </select></label>
-          <label data-accion="cambiarTipo">Nuevo tipo <select name="tipo"></select></label>
+          <label data-accion="cambiarTipo">Nuevo motivo <select name="tipo"></select></label>
           <label data-accion="registrarEgreso" hidden>Fecha y hora del egreso o del fin de la observación
             <input name="egreso" type="datetime-local"></label>
           <label data-accion="registrarRetencion" hidden>Motivo (sin datos del paciente) <input name="motivo" autocomplete="off"></label>
@@ -233,6 +235,8 @@
 
 <script>
   var formas = {};
+  var plazos = {};    // descripción del plazo de cada motivo
+  var motivos = {};   // motivo habitual de cada servicio
   var cargo = [];     // salidas ya registradas del cargo actual
   var cola = [];      // registros por enviar, en el orden en que se escribieron
   var enviando = false;
@@ -262,10 +266,12 @@
     var destino = document.getElementById('seguimiento').tipo;
     conf.tipos.forEach(function (t) {
       formas[t.nombre] = t.forma;
+      plazos[t.nombre] = t.plazo;
       f.tipo.add(new Option(t.nombre));
       if (t.forma === 'horas_desde_alta') destino.add(new Option(t.nombre));
     });
-    tipoCambiado();
+    motivos = conf.motivos || {};
+    servicioCambiado();
     f.numero.focus();
     actualizarResumen();
   }
@@ -349,7 +355,7 @@
         var delServicio = lista.filter(function (p) { return p.servicio === servicio; });
         agregar(zona, 'h3', servicio + ' (' + delServicio.length + ')');
         // Mismos anchos de columna en todos los servicios, para que las tablas se alineen.
-        tabla(zona, ['Número', 'Persona', 'Tipo', 'Salida', 'Fecha límite', 'Estado'], delServicio.map(function (p) {
+        tabla(zona, ['Número', 'Persona', 'Motivo', 'Salida', 'Fecha límite', 'Estado'], delServicio.map(function (p) {
           return { celdas: [p.numero, p.persona, p.tipo, p.salida, p.limite, p.estado],
             clase: p.vencida ? 'vencida' : '' };
         })).className = 'fija';
@@ -379,7 +385,7 @@
       zona.replaceChildren();
       avisar(filas.length ? cantidad(filas.length, 'préstamo', 'préstamos') + ' de la historia ' + numero + '.' : 'La historia ' + numero + ' no tiene préstamos registrados.', true);
       if (!filas.length) return;
-      tabla(zona, ['Salida', 'Servicio', 'Persona', 'Tipo', 'Entrega', 'Egreso', 'Fecha límite', 'Retención',
+      tabla(zona, ['Salida', 'Servicio', 'Persona', 'Motivo', 'Entrega', 'Egreso', 'Fecha límite', 'Retención',
         'Devolución', 'Recibe', 'Integridad'], filas.map(function (r) {
         return { celdas: [r.salida, r.servicio, r.persona, r.tipo, r.entrega, r.egreso, r.limite, r.retencion,
           r.devolucion || 'sin devolver', r.recibe, r.integridad], clase: '' };
@@ -412,8 +418,16 @@
     return nodo;
   }
 
+  // Al elegir el servicio se propone su motivo habitual; se puede cambiar.
+  function servicioCambiado() {
+    var f = document.getElementById('salida');
+    if (motivos[f.servicio.value]) f.tipo.value = motivos[f.servicio.value];
+    tipoCambiado();
+  }
+
   function tipoCambiado() {
     var f = document.getElementById('salida');
+    document.getElementById('plazo-motivo').textContent = plazos[f.tipo.value] || '';
     var manual = formas[f.tipo.value] === 'manual';
     document.getElementById('campo-fecha').hidden = !manual;
     f.fechaManual.required = manual;

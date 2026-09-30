@@ -2,7 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir, siNo, diaLocal, salidasDelCargo,
   fechaHoraDeTexto, limiteManual, validarCambioDeTipo, limiteTrasEgreso, prestamosFuera,
-  inicioDeSemana, cumplimientoPorSemana, mensajeVencidas, tiempoRestante } = require('../src/reglas.js');
+  inicioDeSemana, cumplimientoPorSemana, mensajeVencidas, tiempoRestante,
+  motivosPorServicio, descripcionPlazo } = require('../src/reglas.js');
 
 // Horario de ejemplo: lunes a viernes de 7:00 a 19:00 y sábados de 7:00 a 13:00.
 const LV = ['07:00', '19:00'];
@@ -193,3 +194,20 @@ test('tiempo restante: vencida', () => {
   assert.strictEqual(tiempoRestante(lima('2026-09-25T09:00'), ahora), 'vencida hace 3 días');
 });
 test('tiempo restante: sin fecha límite', () => assert.strictEqual(tiempoRestante('', lima('2026-09-28T10:00')), '—'));
+
+test('motivo por servicio: solo los que existen en plazos', () => {
+  const plazos = { 'Consulta ambulatoria': { forma: 'fin_del_dia' }, Emergencia: { forma: 'horas', horas: 24 } };
+  assert.deepStrictEqual(motivosPorServicio([
+    ['Anestesiología', 'Consulta ambulatoria'],
+    ['Emergencia', 'Emergencia'],
+    ['Cardiología', ''],
+    ['Auditoría médica', 'Motivo que no existe']
+  ], plazos), { 'Anestesiología': 'Consulta ambulatoria', Emergencia: 'Emergencia' });
+});
+
+test('descripción del plazo de cada forma', () => {
+  assert.strictEqual(descripcionPlazo({ forma: 'fin_del_dia' }), 'Vence al cierre del archivo el mismo día.');
+  assert.strictEqual(descripcionPlazo({ forma: 'horas', horas: 72 }), 'Vence en 72 h corridas.');
+  assert.match(descripcionPlazo({ forma: 'horas_desde_alta', horas: 48 }), /^Sin fecha límite hasta el egreso .+ 48 h corridas\.$/);
+  assert.match(descripcionPlazo({ forma: 'manual' }), /se elige/);
+});

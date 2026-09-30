@@ -25,7 +25,10 @@ function configuracion() {
   var conf = leerConfiguracion();
   return {
     servicios: conf.servicios,
-    tipos: Object.keys(conf.plazos).map(function (t) { return { nombre: t, forma: conf.plazos[t].forma }; })
+    motivos: conf.motivos,
+    tipos: Object.keys(conf.plazos).map(function (t) {
+      return { nombre: t, forma: conf.plazos[t].forma, plazo: descripcionPlazo(conf.plazos[t]) };
+    })
   };
 }
 
@@ -334,6 +337,7 @@ function leerConfiguracion() {
     formato: { patron: ajustes.formato_numero, quitarCeros: siNo(ajustes.quitar_ceros, 'quitar_ceros') },
     plazos: plazos,
     servicios: filas('servicios').map(function (f) { return f[0]; }),
+    motivos: motivosPorServicio(filas('servicios'), plazos),
     horario: { semana: semana, feriados: feriados }
   };
 }
@@ -420,8 +424,14 @@ function prepararHoja() {
     ['Informes médicos y auditoría médica', 'horas', '72'],
     ['Docencia e investigación', 'manual', '']
   ], true);
-  pestana(nuevo, 'servicios', [['servicio'], ['Consulta externa'], ['Emergencia'], ['Hospitalización'],
-    ['Auditoría médica'], ['Docencia e investigación']], true);
+  pestana(nuevo, 'servicios', [
+    ['servicio', 'motivo'],
+    ['Consulta externa', 'Consulta ambulatoria'],
+    ['Emergencia', 'Emergencia'],
+    ['Hospitalización', 'Hospitalización'],
+    ['Auditoría médica', 'Informes médicos y auditoría médica'],
+    ['Docencia e investigación', 'Docencia e investigación']
+  ], true);
   pestana(nuevo, 'horario', [
     ['dia', 'apertura', 'cierre'],
     ['lunes', '07:00', '19:00'], ['martes', '07:00', '19:00'], ['miércoles', '07:00', '19:00'],

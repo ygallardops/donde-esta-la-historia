@@ -235,6 +235,24 @@ function duracion(lapso) {
     : Math.floor(lapso / DIA_MS) + (lapso < 2 * DIA_MS ? ' día' : ' días');
 }
 
+// Motivo habitual de cada servicio (segunda columna de la pestaña servicios). Se ignoran los que no están en plazos.
+function motivosPorServicio(filas, plazos) {
+  var motivos = {};
+  filas.forEach(function (f) { if (f[1] && plazos[f[1]]) motivos[f[0]] = f[1]; });
+  return motivos;
+}
+
+// Qué plazo implica un tipo de préstamo, para mostrarlo al elegirlo.
+function descripcionPlazo(plazo) {
+  switch (plazo.forma) {
+    case 'fin_del_dia': return 'Vence al cierre del archivo el mismo día.';
+    case 'horas': return 'Vence en ' + plazo.horas + ' h corridas.';
+    case 'horas_desde_alta': return 'Sin fecha límite hasta el egreso o el fin de la observación; desde ahí, ' + plazo.horas + ' h corridas.';
+    case 'manual': return 'La fecha de devolución se elige al registrar la salida.';
+    default: return '';
+  }
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     fechaLimite: fechaLimite,
@@ -253,6 +271,8 @@ if (typeof module !== 'undefined') {
     inicioDeSemana: inicioDeSemana,
     cumplimientoPorSemana: cumplimientoPorSemana,
     mensajeVencidas: mensajeVencidas,
-    tiempoRestante: tiempoRestante
+    tiempoRestante: tiempoRestante,
+    motivosPorServicio: motivosPorServicio,
+    descripcionPlazo: descripcionPlazo
   };
 }
