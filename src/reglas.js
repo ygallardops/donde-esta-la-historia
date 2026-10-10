@@ -100,7 +100,7 @@ function esAutorizada(correo, autorizadas) {
   return c !== '' && autorizadas.some(function (a) { return String(a).trim().toLowerCase() === c; });
 }
 
-// 'AAAA-MM-DD' → medianoche de ese día en hora del Perú.
+// 'AAAA-MM-DD': medianoche de ese día en hora del Perú.
 function fechaDeTexto(texto) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) throw new Error('Fecha no válida: ' + texto);
   var fecha = new Date(texto + 'T00:00:00-05:00');
@@ -108,7 +108,7 @@ function fechaDeTexto(texto) {
   return fecha;
 }
 
-// 'AAAA-MM-DDTHH:MM' (campo de fecha y hora de la página) → esa fecha y hora del Perú.
+// 'AAAA-MM-DDTHH:MM' (campo de fecha y hora de la página): esa fecha y hora del Perú.
 function fechaHoraDeTexto(texto) {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(texto)) throw new Error('Fecha y hora no válidas: ' + texto);
   var fecha = new Date(texto + ':00-05:00');

@@ -21,7 +21,7 @@ Registrar cada salida y cada devolución en segundos, saber en todo momento qué
 
 - Códigos QR o de barras en las carátulas.
 - El tarjetón de reemplazo (numeral 5.3.1, inciso 5), literal d), que es un procedimiento físico del archivo.
-- Reportes mensuales o indicadores.
+- Reportes mensuales e indicadores distintos del cumplimiento semanal del registro de salidas.
 - Integración con sistemas de historia clínica electrónica.
 - Digitalización de documentos.
 
@@ -81,7 +81,8 @@ Si se intenta registrar la devolución de una historia que no figura prestada, l
 
 ### Consultas
 
-- **Fuera ahora:** historias prestadas, agrupadas por servicio y ordenadas por fecha límite, con las vencidas marcadas y un filtro para ver solo esas.
+- **Fuera ahora:** historias prestadas, agrupadas por servicio y ordenadas por fecha límite, con las vencidas marcadas y un filtro para ver solo esas. La columna Estado indica el tiempo que falta para la fecha límite o el que lleva vencida.
+- **Resumen:** la pestaña Salida muestra cuántas historias están fuera y cuántas vencidas, y se actualiza al terminar cada tanda de registros.
 - **Historial:** todos los préstamos de un número de historia, del más reciente al más antiguo.
 - **Cumplimiento por semana:** en las últimas 8 semanas (de lunes a domingo), los ingresos al archivo, cuántos llegaron sin salida registrada y el porcentaje con salida registrada.
 
@@ -91,7 +92,7 @@ Todos los días, entre las 8:00 y las 9:00, se envía a un espacio de Google Cha
 
 ## Cálculo de la fecha límite
 
-La tabla de plazos admite tres formas de vencimiento:
+La tabla de plazos admite tres formas de vencimiento calculado:
 
 | Forma | Significado |
 | --- | --- |
@@ -99,7 +100,7 @@ La tabla de plazos admite tres formas de vencimiento:
 | `horas` | N horas corridas desde la salida |
 | `horas_desde_alta` | N horas corridas desde el egreso o el fin de la observación |
 
-En docencia e investigación no hay fórmula: la fecha límite la fija quien registra la salida.
+En docencia e investigación no hay fórmula: la forma se configura como `manual` y la fecha límite la fija quien registra la salida.
 
 Configuración de ejemplo del repositorio:
 
@@ -122,9 +123,9 @@ Configuración de ejemplo del repositorio:
 
 Ejemplos con el horario de ejemplo de la configuración (lunes a viernes de 7:00 a 19:00 y sábados de 7:00 a 13:00):
 
-- Sale un sábado a las 12:00 con 24 horas → vence el domingo a las 12:00 → se corre al lunes a las 7:00.
-- Sale un lunes a las 10:00 con `fin_del_dia` → vence el lunes a las 19:00.
-- Sale un sábado a las 9:00 con `fin_del_dia` → vence el sábado a las 13:00.
+- Sale un sábado a las 12:00 con 24 horas: vence el domingo a las 12:00 y se corre al lunes a las 7:00.
+- Sale un lunes a las 10:00 con `fin_del_dia`: vence el lunes a las 19:00.
+- Sale un sábado a las 9:00 con `fin_del_dia`: vence el sábado a las 13:00.
 
 El horario de atención y la lista de feriados se configuran en la hoja.
 
@@ -141,11 +142,11 @@ Un archivo de Google Sheets por año, con estas pestañas:
 | `usuarios` | Cuentas autorizadas para registrar |
 | `configuracion` | Formato del número de historia y si se quitan los ceros a la izquierda |
 
-Google Sheets admite hasta 10 millones de celdas por archivo. Con 16 columnas en `movimientos`, un archivo anual admite más de 600 000 préstamos.
+Google Sheets admite hasta 10 millones de celdas por archivo. Con 16 columnas en `movimientos`, un archivo anual admite más de 600 000 préstamos. El procedimiento para abrir el archivo de un nuevo año está pendiente.
 
 ## Arquitectura
 
-- **Página web de Apps Script** con dos pestañas, Salida y Devolución, pensada para el teclado: escribir el número y presionar Enter. Se ejecuta como la cuenta propietaria del archivo, con acceso restringido al dominio. La hoja no se comparte con quienes registran: solo escriben a través de la página. La cuenta de quien registra se obtiene con `Session.getActiveUser()`, que la devuelve cuando pertenece al mismo dominio de Google Workspace.
+- **Página web de Apps Script** con cuatro pestañas (Salida, Devolución, Seguimiento y Consultas), pensada para el teclado: escribir el número y presionar Enter. Se ejecuta como la cuenta propietaria del archivo, con acceso restringido al dominio. La hoja no se comparte con quienes registran: solo escriben a través de la página. La cuenta de quien registra se obtiene con `Session.getActiveUser()`, que la devuelve cuando pertenece al mismo dominio de Google Workspace.
 - **Registro sin espera:** la página envía los registros en cola, de uno en uno y en orden, mientras se sigue escribiendo. Los rechazos quedan listados con su número.
 - **Caché de configuración:** las pestañas de configuración y la lista de cuentas se guardan en caché 10 minutos; un activador al editar la hoja la borra para que los cambios se apliquen al instante.
 - **Escrituras de una en una** con `LockService`, para que dos personas que registran al mismo tiempo no se pisen.
