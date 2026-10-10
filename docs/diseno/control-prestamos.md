@@ -131,7 +131,7 @@ El horario de atención y la lista de feriados se configuran en la hoja.
 
 ## Datos
 
-Un archivo de Google Sheets por año, con estas pestañas:
+Un archivo de Google Sheets en uso, con estas pestañas:
 
 | Pestaña | Contenido |
 | --- | --- |
@@ -142,7 +142,13 @@ Un archivo de Google Sheets por año, con estas pestañas:
 | `usuarios` | Cuentas autorizadas para registrar |
 | `configuracion` | Formato del número de historia y si se quitan los ceros a la izquierda |
 
-Google Sheets admite hasta 10 millones de celdas por archivo. Con 16 columnas en `movimientos`, un archivo anual admite más de 600 000 préstamos. El procedimiento para abrir el archivo de un nuevo año está pendiente.
+Google Sheets admite hasta 10 millones de celdas por archivo. Con 16 columnas en `movimientos`, un archivo admite más de 600 000 préstamos.
+
+### Archivo por año
+
+Cuando termina un año, `archivarAnio` pasa a un archivo aparte los préstamos devueltos en ese año, incluidos los ingresos sin salida registrada, y los quita de `movimientos`. Por defecto archiva el año anterior y no admite el año en curso. Los préstamos que siguen abiertos, la configuración y los activadores se quedan en el archivo en uso.
+
+Los préstamos solo se quitan después de comprobar que la copia está completa. Desde ese momento, el historial de un número y el cumplimiento por semana ya no incluyen los préstamos archivados: se consultan en el archivo de ese año.
 
 ## Arquitectura
 

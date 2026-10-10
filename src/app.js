@@ -454,6 +454,42 @@ function prepararHoja() {
   Logger.log('Hoja creada: ' + nuevo.getUrl());
 }
 
+// Pasa a una hoja aparte los préstamos devueltos en un año terminado (por defecto, el anterior) y los quita de movimientos.
+// Los préstamos abiertos, la configuración y los activadores no cambian. Se ejecuta desde el editor.
+function archivarAnio(anio) {
+  anio = anioParaArchivar(anio, new Date());
+  return conBloqueo(function () {
+    var hoja = libro().getSheetByName('movimientos');
+    var filas = todasLasFilas();
+    var archivadas = filas.filter(function (f) { return devueltoEnAnio(f[COL.devolucion], anio); });
+    if (!archivadas.length) {
+      Logger.log('No hay préstamos devueltos en ' + anio + '.');
+      return;
+    }
+    var resto = filas.filter(function (f) { return !devueltoEnAnio(f[COL.devolucion], anio); });
+
+    var archivo = SpreadsheetApp.create('Control de préstamos de historias clínicas: archivo ' + anio);
+    archivo.setSpreadsheetTimeZone('America/Lima');
+    var inicial = archivo.getSheets()[0];
+    var destino = pestana(archivo, 'movimientos', [COLUMNAS], false);
+    destino.getRange('B:B').setNumberFormat('@');
+    var faltan = archivadas.length + 1 - destino.getMaxRows();
+    if (faltan > 0) destino.insertRowsAfter(destino.getMaxRows(), faltan);
+    destino.getRange(2, 1, archivadas.length, COLUMNAS.length).setValues(archivadas);
+    archivo.deleteSheet(inicial);
+    SpreadsheetApp.flush();
+    // Solo se quitan de movimientos después de comprobar que la copia está completa.
+    if (destino.getLastRow() - 1 !== archivadas.length) {
+      throw new Error('La copia quedó incompleta y no se quitó nada de movimientos. Revisar ' + archivo.getUrl());
+    }
+
+    // Primero se escriben las filas que se quedan y después se limpia el sobrante: si algo falla, no se pierde ninguna.
+    if (resto.length) hoja.getRange(2, 1, resto.length, COLUMNAS.length).setValues(resto);
+    hoja.getRange(resto.length + 2, 1, archivadas.length, COLUMNAS.length).clearContent();
+    Logger.log('Préstamos de ' + anio + ' archivados: ' + archivadas.length + '. Hoja: ' + archivo.getUrl());
+  });
+}
+
 // Crea una pestaña con sus valores. Con comoTexto, Sheets no convierte horas ni fechas.
 function pestana(destino, nombre, valores, comoTexto) {
   var hoja = destino.insertSheet(nombre);

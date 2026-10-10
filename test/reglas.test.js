@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir, siNo, diaLocal, salidasDelCargo,
   fechaHoraDeTexto, limiteManual, validarCambioDeTipo, limiteTrasEgreso, prestamosFuera,
   inicioDeSemana, cumplimientoPorSemana, mensajeVencidas, tiempoRestante,
-  motivosPorServicio, descripcionPlazo, textoLibre } = require('../src/reglas.js');
+  motivosPorServicio, descripcionPlazo, textoLibre, anioParaArchivar, devueltoEnAnio } = require('../src/reglas.js');
 
 // Horario de ejemplo: lunes a viernes de 7:00 a 19:00 y sábados de 7:00 a 13:00.
 const LV = ['07:00', '19:00'];
@@ -217,4 +217,17 @@ test('texto libre: vacío', () => assert.strictEqual(textoLibre(undefined, 'La o
 test('texto libre: no puede empezar con =', () => {
   assert.throws(() => textoLibre(' =1+1', 'El nombre'), /El nombre no puede empezar con el signo =/);
   assert.strictEqual(textoLibre('Folios 3 = 4', 'La observación'), 'Folios 3 = 4');
+});
+
+test('archivo: por defecto, el año anterior', () => assert.strictEqual(anioParaArchivar(undefined, lima('2027-01-04T10:00')), 2026));
+test('archivo: el año se decide con la hora del Perú', () => assert.strictEqual(anioParaArchivar(undefined, new Date('2027-01-01T03:00:00Z')), 2025));
+test('archivo: solo años terminados', () => {
+  assert.throws(() => anioParaArchivar(2027, lima('2027-06-01T10:00')), /todavía no/);
+  assert.throws(() => anioParaArchivar('dos mil', lima('2027-06-01T10:00')), /no válido/);
+  assert.strictEqual(anioParaArchivar('2025', lima('2027-06-01T10:00')), 2025);
+});
+test('archivo: devueltos en el año, nunca los abiertos', () => {
+  assert.ok(devueltoEnAnio(lima('2026-12-31T23:30'), 2026));
+  assert.ok(!devueltoEnAnio(lima('2027-01-01T00:10'), 2026));
+  assert.ok(!devueltoEnAnio('', 2026));
 });

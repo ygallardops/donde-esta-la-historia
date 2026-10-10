@@ -66,6 +66,7 @@ La pestaña Consultas muestra en todo momento qué historias están fuera y cuá
 - Resume en la pestaña Salida cuántas historias están fuera y cuántas vencidas.
 - Registra el ingreso de una historia sin salida registrada y mide por semana el cumplimiento del registro de salidas.
 - Envía un aviso diario de historias vencidas a un espacio de Google Chat.
+- Archiva en una hoja aparte los préstamos devueltos de un año terminado.
 - Solo admite las cuentas autorizadas en la hoja.
 - Guarda solo el número de historia: sin nombre del paciente ni diagnóstico.
 
@@ -145,6 +146,13 @@ Las propiedades del script se editan en el editor, en <kbd>Configuración del pr
 | `ID_HOJA` | Identificador de la hoja. La guarda `prepararHoja` |
 | `WEBHOOK_CHAT` | Dirección del webhook de Google Chat para el aviso diario (opcional) |
 | `DEMO` | En `sí`, permite generar datos sintéticos. Solo para hojas de prueba |
+
+### Cambio de año
+
+Cuando termina un año, ejecutar `archivarAnio` desde el editor: pasa a una hoja nueva los préstamos devueltos en el año anterior y los quita de `movimientos`. Los préstamos abiertos y la configuración no cambian. La dirección de la hoja de archivo queda en el registro de ejecución.
+
+> [!NOTE]
+> El historial de un número y el cumplimiento por semana no incluyen los préstamos archivados. Conviene archivar cuando hayan pasado las ocho semanas que muestra el cumplimiento.
 
 ## Demostración
 

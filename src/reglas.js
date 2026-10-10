@@ -189,6 +189,20 @@ function salidasDelCargo(salidas, dia, servicio, persona) {
   });
 }
 
+// Año que se archiva: por defecto, el anterior al actual. Solo años ya terminados (hora del Perú).
+function anioParaArchivar(anio, ahora) {
+  var actual = Number(diaLocal(ahora).slice(0, 4));
+  var elegido = anio === undefined || anio === null || anio === '' ? actual - 1 : Number(anio);
+  if (Math.floor(elegido) !== elegido) throw new Error('Año no válido: ' + anio);
+  if (elegido >= actual) throw new Error('Solo se archivan años terminados: ' + elegido + ' todavía no lo está');
+  return elegido;
+}
+
+// Préstamo cerrado en ese año (hora del Perú). Los abiertos no tienen devolución y nunca se archivan.
+function devueltoEnAnio(devolucion, anio) {
+  return devolucion instanceof Date && diaLocal(devolucion).slice(0, 4) === String(anio);
+}
+
 // Lunes 'AAAA-MM-DD' (hora del Perú) de la semana que contiene la fecha.
 function inicioDeSemana(fecha) {
   var local = new Date(fecha.getTime() + DESFASE_MS);
@@ -281,6 +295,8 @@ if (typeof module !== 'undefined') {
     tiempoRestante: tiempoRestante,
     motivosPorServicio: motivosPorServicio,
     descripcionPlazo: descripcionPlazo,
-    textoLibre: textoLibre
+    textoLibre: textoLibre,
+    anioParaArchivar: anioParaArchivar,
+    devueltoEnAnio: devueltoEnAnio
   };
 }
