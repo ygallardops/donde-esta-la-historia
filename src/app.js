@@ -36,7 +36,7 @@ function registrarSalida(datos) {
   var correo = cuentaActual();
   var conf = leerConfiguracion();
   var numero = normalizarNumero(datos.numero, conf.formato);
-  var persona = String(datos.persona || '').trim();
+  var persona = textoLibre(datos.persona, 'El nombre de la persona autorizada');
   if (!persona) throw new Error('Falta el nombre de la persona autorizada que recibe');
   if (conf.servicios.indexOf(datos.servicio) === -1) throw new Error('Servicio no válido');
   var plazo = conf.plazos[datos.tipo];
@@ -140,7 +140,7 @@ function registrarIngresoSinSalida(datos) {
 
 function observacionDeIntegridad(datos) {
   if (INTEGRIDAD.indexOf(datos.integridad) === -1) throw new Error('Integridad no válida');
-  var observacion = String(datos.observacion || '').trim();
+  var observacion = textoLibre(datos.observacion, 'La observación');
   if (datos.integridad === 'con observaciones' && !observacion) throw new Error('Falta la observación');
   return observacion;
 }

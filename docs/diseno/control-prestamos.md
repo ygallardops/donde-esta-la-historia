@@ -188,3 +188,4 @@ Ninguna credencial institucional pasa por el repositorio.
 | Plazos distintos a los de la norma | Tabla configurable, con la fuente de cada plazo, verificada por cada IPRESS antes de usarla |
 | Devoluciones sin registrar | La devolución toma un número y un Enter; el aviso diario muestra las pendientes |
 | Datos del paciente en campos de texto | Los campos de observación y motivo indican que no deben incluir datos del paciente |
+| Texto que la hoja interpreta como fórmula | Se rechazan el nombre y la observación que empiezan con el signo = |

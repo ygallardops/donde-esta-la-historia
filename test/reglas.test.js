@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const { fechaLimite, normalizarNumero, prestamoAbierto, esAutorizada, limiteAlSalir, siNo, diaLocal, salidasDelCargo,
   fechaHoraDeTexto, limiteManual, validarCambioDeTipo, limiteTrasEgreso, prestamosFuera,
   inicioDeSemana, cumplimientoPorSemana, mensajeVencidas, tiempoRestante,
-  motivosPorServicio, descripcionPlazo } = require('../src/reglas.js');
+  motivosPorServicio, descripcionPlazo, textoLibre } = require('../src/reglas.js');
 
 // Horario de ejemplo: lunes a viernes de 7:00 a 19:00 y sábados de 7:00 a 13:00.
 const LV = ['07:00', '19:00'];
@@ -210,4 +210,11 @@ test('descripción del plazo de cada forma', () => {
   assert.strictEqual(descripcionPlazo({ forma: 'horas', horas: 72 }), 'Vence en 72 h corridas.');
   assert.match(descripcionPlazo({ forma: 'horas_desde_alta', horas: 48 }), /^Sin fecha límite hasta el egreso .+ 48 h corridas\.$/);
   assert.match(descripcionPlazo({ forma: 'manual' }), /se elige/);
+});
+
+test('texto libre: sin espacios en los extremos', () => assert.strictEqual(textoLibre('  Ana Ejemplo Uno ', 'El nombre'), 'Ana Ejemplo Uno'));
+test('texto libre: vacío', () => assert.strictEqual(textoLibre(undefined, 'La observación'), ''));
+test('texto libre: no puede empezar con =', () => {
+  assert.throws(() => textoLibre(' =1+1', 'El nombre'), /El nombre no puede empezar con el signo =/);
+  assert.strictEqual(textoLibre('Folios 3 = 4', 'La observación'), 'Folios 3 = 4');
 });

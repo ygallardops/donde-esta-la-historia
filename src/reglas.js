@@ -87,6 +87,13 @@ function siNo(valor, clave) {
   throw new Error('Valor no válido en ' + clave + ': ' + valor);
 }
 
+// Texto escrito por el usuario que va a la hoja: Sheets toma como fórmula lo que empieza con «=».
+function textoLibre(valor, campo) {
+  var t = String(valor || '').trim();
+  if (t.charAt(0) === '=') throw new Error(campo + ' no puede empezar con el signo =');
+  return t;
+}
+
 // Índice del préstamo sin devolución de ese número, o -1. filas: [[numero, devolucion], ...]
 function prestamoAbierto(numero, filas) {
   for (var i = filas.length - 1; i >= 0; i--) {
@@ -273,6 +280,7 @@ if (typeof module !== 'undefined') {
     mensajeVencidas: mensajeVencidas,
     tiempoRestante: tiempoRestante,
     motivosPorServicio: motivosPorServicio,
-    descripcionPlazo: descripcionPlazo
+    descripcionPlazo: descripcionPlazo,
+    textoLibre: textoLibre
   };
 }
