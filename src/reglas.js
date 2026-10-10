@@ -151,6 +151,8 @@ function validarCambioDeTipo(tipoActual, egreso, tipoNuevo, plazoNuevo) {
 
 // Fecha límite al registrar el egreso o el fin de la observación.
 function limiteTrasEgreso(plazo, salida, egreso, ahora, horario) {
+  // Sin plazo: el tipo del préstamo se renombró o se borró de la configuración mientras estaba abierto.
+  if (!plazo) throw new Error('El tipo de este préstamo ya no figura en la pestaña plazos: revise la configuración');
   if (plazo.forma !== 'horas_desde_alta') throw new Error('Este préstamo no espera un egreso ni el fin de una observación');
   // El campo de la página tiene precisión de minuto: se tolera un egreso en el mismo minuto de la salida.
   if (egreso.getTime() < salida.getTime() - 60000) throw new Error('El egreso es anterior a la salida');

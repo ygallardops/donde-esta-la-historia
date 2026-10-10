@@ -231,3 +231,7 @@ test('archivo: devueltos en el año, nunca los abiertos', () => {
   assert.ok(!devueltoEnAnio(lima('2027-01-01T00:10'), 2026));
   assert.ok(!devueltoEnAnio('', 2026));
 });
+
+test('egreso: el tipo del préstamo ya no está en plazos', () => {
+  assert.throws(() => limiteTrasEgreso(undefined, lima('2026-09-28T10:00'), lima('2026-09-29T10:00'), lima('2026-09-29T11:00'), HORARIO), /ya no figura en la pestaña plazos/);
+});
