@@ -229,8 +229,6 @@ function registrarRetencion(datos) {
   });
 }
 
-// Historias prestadas ahora, por servicio, con las vencidas marcadas.
-// Lee la pestaña completa: con un archivo por año se mantiene en decenas de miles de filas.
 // Cuántas historias están fuera y cuántas vencidas, para el resumen de la pestaña Salida.
 function resumenFuera() {
   cuentaActual();
@@ -243,6 +241,8 @@ function resumenFuera() {
   };
 }
 
+// Historias prestadas ahora, por servicio, con las vencidas marcadas.
+// Lee la pestaña completa: al archivar cada año se mantiene en decenas de miles de filas.
 function fueraAhora() {
   cuentaActual();
   var ahora = new Date();
